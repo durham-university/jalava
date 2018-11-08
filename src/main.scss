@@ -15,6 +15,14 @@ body {
   }
 }
 
+div.error_overlay {
+  position: absolute;
+  top: 10px;
+  left: 30px;
+  right: 30px;
+  height: unset;
+}
+
 div.col_collection_tree {
   white-space: nowrap;
   height: 100%;

@@ -130,8 +130,8 @@ type alias Iiif =
   }
 
 type Msg 
-  = CollectionLoadedInt (Result Http.Error (CollectionUri, Iiif))
-  | ManifestLoadedInt (Result Http.Error (ManifestUri, Iiif))
+  = CollectionLoadedInt CollectionUri (Result Http.Error (CollectionUri, Iiif))
+  | ManifestLoadedInt ManifestUri (Result Http.Error (ManifestUri, Iiif))
 
 type Notification
   = ManifestLoaded ManifestUri
@@ -306,21 +306,21 @@ collectionToString = toString "Unnamed collection"
 update : Msg -> { a | iiif : Iiif, errors : List String} -> ({ a | iiif : Iiif, errors : List String}, Maybe Notification)
 update msg model =
   case msg of
-    ManifestLoadedInt res -> 
+    ManifestLoadedInt manifestUri res -> 
       case res of
         Ok (uri, iiif) -> ({ model | iiif = manifestLoaded iiif model.iiif }, Just (ManifestLoaded uri))
-        Err e -> ({ model | errors = model.errors ++ ["Error loading manifest"] }, Nothing)
-    CollectionLoadedInt res ->
+        Err e -> ({ model | errors = model.errors ++ ["Error loading manifest " ++ manifestUri] }, Nothing)
+    CollectionLoadedInt collectionUri res ->
       case res of
         Ok (uri, iiif) -> ({ model | iiif = collectionLoaded iiif model.iiif }, Just (CollectionLoaded uri))
-        Err e -> ({ model | errors = model.errors ++ ["Error loading collection"] }, Nothing)
+        Err e -> ({ model | errors = model.errors ++ ["Error loading collection " ++ collectionUri] }, Nothing)
 
 
 loadManifest : ManifestUri -> Iiif -> (Iiif, Cmd Msg)
 loadManifest uri iiif = 
   let 
     maybeExisting = Dict.get uri iiif.manifests
-    cmd = Http.send ManifestLoadedInt (Http.get uri manifestDecoder)
+    cmd = Http.send (ManifestLoadedInt uri) (Http.get uri manifestDecoder)
   in
     case maybeExisting of
       Nothing ->
@@ -339,7 +339,7 @@ loadCollection : CollectionUri -> Iiif -> (Iiif, Cmd Msg)
 loadCollection uri iiif = 
   let 
     maybeExisting = Dict.get uri iiif.collections
-    cmd = Http.send CollectionLoadedInt (Http.get uri collectionDecoder)
+    cmd = Http.send (CollectionLoadedInt uri) (Http.get uri collectionDecoder)
   in
     case maybeExisting of
       Nothing ->

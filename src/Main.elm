@@ -29,7 +29,7 @@ import Bootstrap.Grid.Row as Row
 import Bootstrap.Grid.Col as Col
 import Bootstrap.Alert as Alert
 
-import Utils exposing(updateWith)
+import Utils exposing(..)
 
 import Iiif exposing (..)
 import Config
@@ -56,6 +56,7 @@ type Msg
   | CollectionViewMsg CollectionView.Msg
   | IiifMsg Iiif.Msg
   | IiifNotification Iiif.Notification
+  | AlertMsg Int Alert.Visibility
 
 type OutMsg
   = LoadCollection CollectionUri
@@ -176,6 +177,10 @@ update msg model =
         |> U.chain (collectionTreeUpdater (CollectionTree.UrlChanged url))
         |> U.chain (collectionViewUpdater (CollectionView.UrlChanged url))
         |> U.evalOut outMsgEvaluator
+    AlertMsg index visibility->
+      if visibility == Alert.closed then
+        ({model | errors = arrayRemove index model.errors}, Cmd.none)
+      else (model, Cmd.none)
     CollectionTreeMsg collectionTreeMsg ->
       (model, Cmd.none, [])
         |> U.chain (collectionTreeUpdater collectionTreeMsg)
@@ -201,6 +206,14 @@ subscriptions _ =
   Sub.none
 
 
+alertDialog : Int -> String -> Html Msg
+alertDialog index message = 
+  Alert.config
+    |> Alert.danger
+    |> Alert.dismissable (AlertMsg index)
+    |> Alert.children [text message]
+    |> Alert.view Alert.shown
+
 view : Model -> Browser.Document Msg
 view model =
   let
@@ -210,14 +223,13 @@ view model =
   { title = "Elm IIIF"
   , body = 
     [ div []
-      [ Grid.containerFluid [] <|
-        (List.map (\e -> Alert.simpleDanger [] [text ("Error: " ++ e)]) model.errors)
-        ++
+      [ Grid.containerFluid [] 
         [ Grid.row []
           [ Grid.col [ Col.xs4, Col.attrs [ class "col_collection_tree" ] ] [ collectionTree ]
           , Grid.col [ Col.xs8, Col.attrs [ class "col_collection_view" ] ] [ collectionView ]
           ]
         ]
-      ]
+      ],
+      div [ class "error_overlay" ] (List.indexedMap alertDialog model.errors)
     ]
   }

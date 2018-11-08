@@ -17,7 +17,7 @@ import ManifestList
 
 import Update as U
 import Config
-import Utils exposing(updateWith, iiifLink, pluralise)
+import Utils exposing(iiifLink, pluralise)
 
 import Iiif exposing(..)
 
