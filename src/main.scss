@@ -1,0 +1,129 @@
+body {
+  height: 100%;
+  width: 100%;
+  position: absolute;
+  & > div {
+    height: 100%;
+
+    & > div.container-fluid, & > div.container {
+      height: 100%;
+
+      & > div.row {
+        height: 100%;
+      }
+    }
+  }
+}
+
+div.col_collection_tree {
+  white-space: nowrap;
+  height: 100%;
+  overflow: scroll;
+}
+
+div.col_collection_view {
+  height: 100%;
+  overflow-y: scroll;
+  overflow-x: hidden;
+}
+
+.spinner {
+  position: relative;
+  animation: fa-spin 1s infinite linear;
+}
+
+.iiif_link {
+  display: inline-block;
+  width: 21px; // 34
+  height: 18px; // 30
+  background-image: url('logo-iiif-small.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  vertical-align: text-bottom;
+  margin: 0 2px;
+}
+
+.collection_tree {
+  .sub_collections {
+    padding-left: 20px;
+  }
+
+  .collection_node {
+    .title_line {
+      padding: 2px;
+
+      &.selected {
+        border: 3px solid rgba(0, 123, 255, .25);
+        border-radius: 0.25rem;
+        background-color: rgba(0, 123, 255, .1);
+      }
+    }
+  }
+}
+
+.collection_view {
+  .title_row { margin-top: 15px; }
+
+  .logo {
+    float: left;
+    &>img { height: 60px; }
+  }
+
+  h1 {
+    margin-top: 6px;
+  }
+
+  .info_row {
+    text-align: right;
+    line-height: 18px;
+  }
+}
+
+.manifest_list {
+  .manifest_preview_card {
+    .card-header {
+      font-size: 1rem;
+      padding-left: 2.2rem;
+      .logo {
+        height: 1.5rem;
+        position: absolute;
+        left: 0.5rem;
+        top: 0.6rem;
+      }
+    }
+    .card-body {
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    .card-footer {
+      text-align: right;
+      padding: 0.25rem 1.25rem;
+    }
+
+    margin-top: 1rem;
+
+    .manifest_title {
+      font-size: 14px;
+      line-height: 14px;
+      height: 42px;
+      overflow: hidden;
+    }
+    .manifest_logo {
+      display: none;
+      float: left;
+    }
+    .manifest_info {
+      font-size: 14px;
+      text-align: right;
+      line-height: 18px;
+    }
+
+    .images {
+      white-space: nowrap;
+    }
+    .manifest_logo>img {
+      height: 58px;
+      margin: 2px 5px 2px 0;
+    }    
+  }
+}
