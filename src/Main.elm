@@ -32,7 +32,7 @@ import Bootstrap.Alert as Alert
 import Utils exposing(updateWith)
 
 import Iiif exposing (..)
-import UriMapper
+import Config
 import Update as U
 
 import CollectionTree

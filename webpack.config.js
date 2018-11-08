@@ -1,3 +1,5 @@
+var webpack = require('webpack');
+
 module.exports = {
   mode: 'development',
 
@@ -7,6 +9,10 @@ module.exports = {
     app: [
       './src/index.js'
     ]
+  },
+
+  devServer: {
+    contentBase: 'public'
   },
 
   module: {

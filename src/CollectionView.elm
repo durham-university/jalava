@@ -16,7 +16,7 @@ import Bootstrap.Button as Button
 import ManifestList
 
 import Update as U
-import UriMapper
+import Config
 import Utils exposing(updateWith, iiifLink, pluralise)
 
 import Iiif exposing(..)
@@ -87,7 +87,7 @@ openUrl url model =
       let 
         path = String.split "/" fragment
         lastPart = path |> List.reverse |> List.head
-        uri = Maybe.map UriMapper.completeUri lastPart
+        uri = Maybe.map Config.completeUri lastPart
       in
         update (SetCollection uri) { model | url = url }
 

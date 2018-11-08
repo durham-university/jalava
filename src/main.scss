@@ -100,30 +100,16 @@ div.col_collection_view {
       padding: 0.25rem 1.25rem;
     }
 
+    .canvas_preview { 
+      height: 62px; 
+      border-radius: 0.2rem;
+      border: 1px solid transparent;
+      &:hover {
+        box-shadow: 0 0 0 0.1rem rgba(0,123,255,.25);
+        border-color: rgba(0,123,255,.5);
+      }
+    }
+
     margin-top: 1rem;
-
-    .manifest_title {
-      font-size: 14px;
-      line-height: 14px;
-      height: 42px;
-      overflow: hidden;
-    }
-    .manifest_logo {
-      display: none;
-      float: left;
-    }
-    .manifest_info {
-      font-size: 14px;
-      text-align: right;
-      line-height: 18px;
-    }
-
-    .images {
-      white-space: nowrap;
-    }
-    .manifest_logo>img {
-      height: 58px;
-      margin: 2px 5px 2px 0;
-    }    
   }
 }

@@ -1,8 +1,22 @@
-module UriMapper exposing(shortenUri, completeUri)
+module Config exposing(..)
 
-import Iiif exposing(Uri)
+import Iiif
 
-shortenUri : Uri -> String
+miradorBase = "https://iiif.durham.ac.uk/index.html"
+
+manifestViewerUrl : Iiif.Manifest -> String
+manifestViewerUrl manifest = 
+  let shortId = shortenUri manifest.id
+  in miradorBase ++ "?manifest=" ++ shortId
+
+canvasViewerUrl : Iiif.Manifest -> Iiif.Canvas -> String
+canvasViewerUrl manifest canvas =
+  let 
+    manifestUrl = manifestViewerUrl manifest
+    shortId = shortenUri canvas.id
+  in manifestUrl ++ "&canvas=" ++ shortId
+
+shortenUri : Iiif.Uri -> String
 shortenUri uri =
   let
     reverse = List.reverse <| String.split "/" uri
@@ -12,7 +26,7 @@ shortenUri uri =
       "manifest" :: id :: xs -> id
       id :: xs -> id
 
-completeUri : String -> Uri
+completeUri : String -> Iiif.Uri
 completeUri id =
   let
     chars = String.split "" id

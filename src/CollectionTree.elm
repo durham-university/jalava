@@ -13,7 +13,7 @@ import Bootstrap.Button as Button
 import Iiif exposing(..)
 import Utils exposing(..)
 import Update as U
-import UriMapper
+import Config
 
 type Msg  = OpenCollection CollectionUri
           | CloseCollection CollectionUri
@@ -64,7 +64,7 @@ openUrl url model =
     Just fragment -> 
       let 
         path = String.split "/" fragment
-        fullPath = List.map UriMapper.completeUri path
+        fullPath = List.map Config.completeUri path
       in
         openPath fullPath { model | url = url }
 
@@ -85,7 +85,7 @@ fragmentPath : List Collection -> String
 fragmentPath path = 
   path
     |> List.reverse
-    |> List.map (UriMapper.shortenUri << .id)
+    |> List.map (Config.shortenUri << .id)
     |> String.join "/"
     |> (++) "#"
 

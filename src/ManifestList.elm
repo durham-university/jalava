@@ -17,7 +17,7 @@ import Bootstrap.Card.Block as Block
 import Iiif exposing(..)
 import Utils exposing(iiifLink, pluralise)
 import Update as U
-import UriMapper
+import Config
 
 
 type alias Model = 
@@ -87,19 +87,6 @@ updateLoadManifests model =
       |> U.foldOut (\uri m -> [LoadManifest uri]) stubUris
 
 
-manifestViewerUrl : Manifest -> String
-manifestViewerUrl manifest = 
-  let shortId = UriMapper.shortenUri manifest.id
-  in "https://iiif.durham.ac.uk/index.html?manifest=" ++ shortId
-
-canvasViewerUrl : Manifest -> Canvas -> String
-canvasViewerUrl manifest canvas =
-  let 
-    manifestUrl = manifestViewerUrl manifest
-    shortId = UriMapper.shortenUri canvas.id
-  in manifestUrl ++ "&canvas=" ++ shortId
-
-
 view : Model -> Html msg
 view model = 
   div [ class "manifest_list" ] (List.map (manifestLine model.iiif) (allManifestUris model))
@@ -121,9 +108,13 @@ manifestLine iiif manifestUri =
   in
   Grid.row [] [ Grid.col [] [
     Card.config [ Card.attrs [class "manifest_preview_card"] ]
-      |> Card.headerH3 [] (logoHtml ++ [ Html.a [href (manifestViewerUrl manifest)] [text <| Iiif.manifestToString manifest] ] ++ spinnerHtml)
+      |> Card.headerH3 [] (logoHtml ++ [ Html.a [href (Config.manifestViewerUrl manifest)] [text <| Iiif.manifestToString manifest] ] ++ spinnerHtml)
       |> Card.block [] 
-          (List.map (\c -> Block.link [ href (canvasViewerUrl manifest c) ] [ img [src <| Iiif.canvasUrl (Iiif.FitH 60) c] [] ]) canvases )
+          (List.map (\c -> Block.link [ href (Config.canvasViewerUrl manifest c) ] [ canvasImgHtml c ]) canvases )
       |> Card.footer [ class "text-muted" ] [ text <| pluralise (List.length canvases) "image - " "images - ", iiifLink manifestUri ]
       |> Card.view
   ]]
+
+canvasImgHtml : Canvas -> Html msg
+canvasImgHtml canvas = 
+  img [ class "lazyload canvas_preview", src "spinner_40x60.gif", attribute "data-src" <| Iiif.canvasUrl (Iiif.FitH 60) canvas] []
