@@ -1,7 +1,5 @@
 module Iiif exposing(..)
 
-import Debug
-
 import Dict exposing(Dict)
 import Json.Decode as Decode
 import Json.Decode.Pipeline exposing (required, optional, hardcoded, custom)
@@ -37,8 +35,18 @@ type alias Manifest =
   , logo : Maybe String
   , license : Maybe String
   , attribution : Maybe String
+  , metadata : Dict String (List String)
+  , related : Maybe ManifestLink
+  , seeAlso : Maybe ManifestLink
   , sequences : List Sequence
   , status : Status
+  }
+
+type alias ManifestLink = 
+  { id : Uri
+  , label : Maybe String
+  , format : Maybe String
+  , profile : Maybe String
   }
 
 type alias Collection =
@@ -149,6 +157,9 @@ stubManifest id label logo =
   , logo = logo
   , license = Nothing
   , attribution = Nothing
+  , metadata = Dict.empty
+  , related = Nothing
+  , seeAlso = Nothing
   , sequences = []
   , status = Stub
   }
@@ -173,6 +184,9 @@ manifestDecoder =
       |> optional "logo" (Decode.nullable Decode.string) Nothing
       |> optional "license" (Decode.nullable Decode.string) Nothing
       |> optional "attribution" (Decode.nullable Decode.string) Nothing
+      |> optional "metadata" (metadataDecoder) (Dict.empty)
+      |> optional "related" (Decode.nullable manifestLinkDecoder) Nothing
+      |> optional "seeAlso" (Decode.nullable manifestLinkDecoder) Nothing
       |> optional "sequences" (Decode.list sequenceDecoder) []
       |> hardcoded Full
     manifestUri = Decode.map .id manifest
@@ -180,6 +194,31 @@ manifestDecoder =
     iiif = Decode.map (Iiif Dict.empty) manifestDict
   in
   Decode.map2 tuple2 manifestUri iiif
+
+
+metadataDecoder : Decode.Decoder (Dict String (List String))
+metadataDecoder =
+  let 
+    t2 = \a b -> (a, b)
+    valueDecoder = Decode.oneOf
+      [ Decode.list Decode.string
+      , Decode.map (List.singleton) Decode.string
+      ]
+  in
+  Decode.map Dict.fromList
+    <| Decode.list (
+      Decode.succeed t2
+        |> required "label" Decode.string
+        |> required "value" valueDecoder
+    )
+
+manifestLinkDecoder : Decode.Decoder (ManifestLink)
+manifestLinkDecoder =
+  Decode.succeed ManifestLink
+    |> required "@id" Decode.string
+    |> optional "label" (Decode.nullable Decode.string) Nothing
+    |> optional "format" (Decode.nullable Decode.string) Nothing
+    |> optional "profile" (Decode.nullable Decode.string) Nothing
 
 
 manifestStubDecoder : Decode.Decoder Manifest

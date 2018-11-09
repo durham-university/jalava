@@ -27,3 +27,7 @@ pluralise count singular plural =
   case count of
     1 -> (String.fromInt count) ++ " " ++ singular
     _ -> (String.fromInt count) ++ " " ++ plural
+
+
+wrapKey : ( {a | id: String} -> b ) -> ( {a | id: String} -> ( String, b ) )
+wrapKey f = \o -> (o.id, f o)

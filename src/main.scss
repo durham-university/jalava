@@ -4,6 +4,10 @@ body {
   position: absolute;
   & > div {
     height: 100%;
+    width: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
 
     & > div.container-fluid, & > div.container {
       height: 100%;
@@ -21,6 +25,7 @@ div.error_overlay {
   left: 30px;
   right: 30px;
   height: unset;
+  width: unset;
 }
 
 div.col_collection_tree {
@@ -34,6 +39,8 @@ div.col_collection_view {
   overflow-y: scroll;
   overflow-x: hidden;
 }
+
+.hide { display: none; }
 
 .spinner {
   position: relative;
@@ -99,19 +106,56 @@ div.col_collection_view {
         top: 0.6rem;
       }
     }
-    .card-body {
+    .canvas_line {
       white-space: nowrap;
       overflow: hidden;
     }
     .card-footer {
-      text-align: right;
+      color: #666;
       padding: 0.25rem 1.25rem;
+
+      .show_details {
+        float: left;
+        button { 
+          padding: 0;
+          color: #666; 
+
+          &:before {
+            content: 'Hide ';
+          }
+          &.collapsed:before {
+            content: 'Show ';
+          }
+        }
+      }
+      .image_count {
+        float: right;
+        padding-right: 28px;
+
+
+        &:after {
+          content: ' - ';
+        }
+      }
+
+      .iiif_link {
+        position: absolute;
+        display: inline-block;
+        right: 19px;
+        bottom: 10px;
+      }
     }
 
     .canvas_preview { 
+      display: inline-block;
       height: 62px; 
       border-radius: 0.2rem;
       border: 1px solid transparent;
+      
+      & + .canvas_preview {
+        margin-left: 10px;
+      }
+
       &:hover {
         box-shadow: 0 0 0 0.1rem rgba(0,123,255,.25);
         border-color: rgba(0,123,255,.5);

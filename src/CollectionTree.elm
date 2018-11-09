@@ -1,7 +1,5 @@
 module CollectionTree exposing(Model, Msg(..), OutMsg(..), init, view, update, emptyModel)
 
-import Debug
-
 import Set exposing(Set, insert, remove, member)
 import Url
 import Json.Decode as Decode

@@ -1,7 +1,5 @@
 module CollectionView exposing(Model, Msg(..), OutMsg(..), init, view, update, emptyModel)
 
-import Debug
-
 import Url
 import Json.Decode as Decode
 import Html exposing (..)
