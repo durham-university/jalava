@@ -11,31 +11,30 @@ import Bootstrap.Button as Button
 import Iiif exposing(..)
 import Utils exposing(..)
 import Update as U
-import Config
 
 type Msg  = OpenCollection CollectionUri
           | CloseCollection CollectionUri
           | SelectPath (List CollectionUri)
-          | UrlChanged Url.Url
+          | CollectionClicked (List CollectionUri)
           | IiifNotification Iiif.Notification
 
 type OutMsg = LoadManifest ManifestUri
             | LoadCollection CollectionUri
+            | CollectionSelected (List CollectionUri)
 
 type alias Model =
-  { url : Url.Url
-  , iiif : Iiif
+  { iiif : Iiif
   , collections : List CollectionUri
   , openedCollections : Set CollectionUri
-  , selectedCollection : Maybe CollectionUri
+  , selectedCollection : List CollectionUri
   , errors : List String
   }
 
-init : Decode.Value -> Url.Url -> ( Model, Cmd Msg, List OutMsg )
-init flags url =
+init : Decode.Value -> ( Model, Cmd Msg, List OutMsg )
+init flags =
   let 
     decodedRootUrl = Decode.decodeValue (Decode.field "rootUrl" Decode.string) flags
-    baseModel = emptyModel url
+    baseModel = emptyModel
     
     loadRoot = case decodedRootUrl of
       Result.Ok rootUrl -> 
@@ -43,49 +42,22 @@ init flags url =
         >> U.mapModel (\m -> {m | collections = m.collections ++ [rootUrl]})
       Result.Err err -> identity
   in
-    openUrl url baseModel |> loadRoot
+    (baseModel, Cmd.none, []) |> loadRoot
 
-emptyModel : Url.Url -> Model
-emptyModel url =
-  { url = url
-  , iiif = Iiif.empty
+emptyModel : Model
+emptyModel =
+  { iiif = Iiif.empty
   , collections = []
   , openedCollections = Set.empty
-  , selectedCollection = Nothing
+  , selectedCollection = []
   , errors = []
   }
-
-openUrl : Url.Url -> Model -> ( Model, Cmd Msg, List OutMsg )
-openUrl url model = 
-  case url.fragment of
-    Nothing -> ( { model | url = url }, Cmd.none, [] )
-    Just fragment -> 
-      let 
-        path = String.split "/" fragment
-        fullPath = List.map Config.completeUri path
-      in
-        openPath fullPath { model | url = url }
-
 
 
 openPath : List CollectionUri -> Model -> (Model, Cmd Msg, List OutMsg)
 openPath path model = 
-  case path of 
-    [] -> (model, Cmd.none, []) -- Shouldn't happen unless path is empty to start with
-    [last] -> openCollection last {model | selectedCollection = Just last}
-    elem :: elem2 :: rest -> 
-      (model, Cmd.none, [])
-        |> U.chain (openCollection elem)
-        |> U.chain (openPath (elem2 :: rest))
-
-
-fragmentPath : List Collection -> String
-fragmentPath path = 
-  path
-    |> List.reverse
-    |> List.map (Config.shortenUri << .id)
-    |> String.join "/"
-    |> (++) "#"
+  ({model | selectedCollection = path}, Cmd.none, [])
+    |> U.fold openCollection path
 
 
 toggleOpenMessage : Collection -> Model -> Msg
@@ -108,7 +80,7 @@ view model =
   div [ class "collection_tree"] <|
     (List.map (collectionTree model []) collections)
 
-collectionTree : Model -> List Collection -> Collection -> Html Msg
+collectionTree : Model -> List CollectionUri -> Collection -> Html Msg
 collectionTree model path collection =
   div [ class "collection_node" ] 
     [ collectionTitleLine path collection model
@@ -121,23 +93,23 @@ collectionTree model path collection =
               let
                 subCollections = getCollections model.iiif collection.collections
               in
-              div [ class "sub_collections" ] (List.map (collectionTree model (collection :: path)) subCollections)
+              div [ class "sub_collections" ] (List.map (collectionTree model (collection.id :: path)) subCollections)
         False -> span [] []
     ]
 
-collectionTitleLine : List Collection -> Collection -> Model -> Html Msg
+collectionTitleLine : List CollectionUri -> Collection -> Model -> Html Msg
 collectionTitleLine path collection model =
   let
-    fullPath = collection :: path
+    fullPath = collection.id :: path
   in
-  span [ class <| "title_line" ++ (if model.selectedCollection == Just collection.id then " selected" else "") ] 
+  span [ class <| "title_line" ++ (if List.head model.selectedCollection == Just collection.id then " selected" else "") ] 
     [ Button.button [ Button.roleLink, Button.attrs [onClick (toggleOpenMessage collection model)] ] 
       [ if isCollectionOpened collection model then
           i [ class "icon fas fa-folder-open"] []
         else
           i [ class "icon fas fa-folder"] []
       ]
-    , a [ href (fragmentPath fullPath)]
+    , Button.button [ Button.roleLink, Button.attrs [onClick (CollectionClicked fullPath)]]
       [ span [ class "title" ] [ text <| Maybe.withDefault "Unnamed Collection" collection.label ]
       ]
     ]
@@ -147,9 +119,9 @@ update msg model =
   case msg of
     OpenCollection targetUri -> openCollection targetUri model
     CloseCollection targetUri -> (setCollectionUriOpen targetUri False model, Cmd.none, [] )
---    SelectCollection targetUri -> openCollection {model | selectedCollection = Just targetUri} targetUri
     SelectPath path -> openPath path model
-    UrlChanged url -> openUrl url model
+    CollectionClicked path -> 
+      openPath path model |> U.addOut [CollectionSelected path]
     IiifNotification notification -> (model, Cmd.none, [])
 
 
@@ -157,14 +129,14 @@ openCollection : CollectionUri -> Model -> (Model, Cmd Msg, List OutMsg)
 openCollection uri model =
   let 
     collection = getCollection model.iiif uri
-    loadCollectionStep = 
+    loadCollection = 
       case isStub collection of 
         True -> U.addOut [LoadCollection collection.id]
         False -> identity
   in
     (model, Cmd.none, [])
       |> U.mapModel (setCollectionUriOpen uri True)
-      |> loadCollectionStep
+      |> loadCollection
     
 
 

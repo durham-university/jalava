@@ -6,9 +6,10 @@ catCmd a b =
     b
   else
     if b == Cmd.none then
-      Cmd.none
+      a
     else
       Cmd.batch [a, b]
+
 
 chain :
   ( modelA -> ( modelB, Cmd msg, List outMsg ) ) ->
@@ -33,7 +34,7 @@ fold folder l (model, cmd, out) =
       let 
         (model2, cmd2, out2) = folder x model 
       in
-        fold folder xs (model, (catCmd cmd cmd2), out ++ out2)
+        fold folder xs (model2, (catCmd cmd cmd2), out ++ out2)
 
 
 fold2 :

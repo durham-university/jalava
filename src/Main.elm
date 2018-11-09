@@ -1,18 +1,4 @@
-{-
-  TODO: 
-   - Might want to change manipulators that now are Model -> something -> (Model, Cmd)
-     to instead be something -> Model -> (Model, Cmd) then they'd be easier to chain
-   - Not sure why tree doesn't open or select collections properly, refactoring
-     previous point may help
-   - Currently problems with loading stubs when needed, see next point
-   - Consider somehow processing all IiifMsgs at the top level and then bubbling messages
-     to child components
-
--}
-
 module Main exposing(..)
-
-import Debug
 
 import Browser
 import Browser.Navigation as Nav
@@ -37,6 +23,7 @@ import Update as U
 
 import CollectionTree
 import CollectionView
+import ManifestView
 
 
 type alias Model =
@@ -45,6 +32,7 @@ type alias Model =
   , iiif : Iiif
   , collectionTreeModel : CollectionTree.Model
   , collectionViewModel : CollectionView.Model
+  , manifestViewModel : ManifestView.Model
   , errors : List String
   }
 
@@ -54,6 +42,7 @@ type Msg
   | UrlChanged Url.Url
   | CollectionTreeMsg CollectionTree.Msg
   | CollectionViewMsg CollectionView.Msg
+  | ManifestViewMsg ManifestView.Msg
   | IiifMsg Iiif.Msg
   | IiifNotification Iiif.Notification
   | AlertMsg Int Alert.Visibility
@@ -61,6 +50,8 @@ type Msg
 type OutMsg
   = LoadCollection CollectionUri
   | LoadManifest ManifestUri
+  | CollectionSelected (List CollectionUri)
+  | CanvasSelected CanvasUri
 
 
 collectionTreeSubModel : Model -> CollectionTree.Model
@@ -73,6 +64,7 @@ collectionTreeOutMapper msg =
   case msg of
     CollectionTree.LoadManifest uri -> LoadManifest uri
     CollectionTree.LoadCollection uri -> LoadCollection uri
+    CollectionTree.CollectionSelected path -> CollectionSelected path
 
 collectionTreeUpdater : CollectionTree.Msg -> Model -> (Model, Cmd Msg, List OutMsg)
 collectionTreeUpdater msg model =
@@ -109,6 +101,28 @@ collectionViewPipe model =
   >> U.mapOut collectionViewOutMapper
 
 
+manifestViewSubModel : Model -> ManifestView.Model
+manifestViewSubModel model =
+  let subModel = model.manifestViewModel
+  in { subModel | iiif = model.iiif }
+
+manifestViewOutMapper : ManifestView.OutMsg -> OutMsg
+manifestViewOutMapper msg =
+  case msg of
+    ManifestView.CanvasSelected uri -> CanvasSelected uri
+
+manifestViewUpdater : ManifestView.Msg -> Model -> (Model, Cmd Msg, List OutMsg)
+manifestViewUpdater msg model =
+  ManifestView.update msg (manifestViewSubModel model)
+    |> (manifestViewPipe model)
+
+manifestViewPipe : Model -> (ManifestView.Model, Cmd ManifestView.Msg, List ManifestView.OutMsg) -> (Model, Cmd Msg, List OutMsg)
+manifestViewPipe model = 
+  U.mapCmd ManifestViewMsg 
+  >> U.mapModel (\m -> { model | manifestViewModel = {m | iiif = Iiif.empty}, errors = model.errors ++ m.errors})
+  >> U.mapOut manifestViewOutMapper
+
+
 main : Program Decode.Value Model Msg
 main =
   Browser.application
@@ -124,16 +138,46 @@ main =
 init : Decode.Value -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
   let 
-    (collectionTree, collectionTreeCmd, collectionTreeOut) = CollectionTree.init flags url
-    (collectionView, collectionViewCmd, collectionViewOut) = CollectionView.init flags url
+    (collectionTree, collectionTreeCmd, collectionTreeOut) = CollectionTree.init flags
+    (collectionView, collectionViewCmd, collectionViewOut) = CollectionView.init flags
     baseModel = emptyModel url key
   in
-    CollectionTree.init flags url
+    CollectionTree.init flags
       |> collectionTreePipe baseModel
       |> U.chain 
-        (\m -> CollectionView.init flags url 
+        (\m -> CollectionView.init flags 
                 |> collectionViewPipe m )
+      |> U.chain (parseUrl url)
       |> U.evalOut outMsgEvaluator
+
+
+parseUrl : Url.Url -> Model -> (Model, Cmd Msg, List OutMsg)
+parseUrl url model =
+  let 
+    path =
+      case url.fragment of
+        Nothing -> []
+        Just fragment ->
+          String.split "/" fragment
+          |> List.map Config.completeUri
+          |> List.reverse
+  in
+    collectionTreeUpdater (CollectionTree.SelectPath path) {model | url = url}
+      |> U.chain (collectionViewUpdater (CollectionView.SetCollection (List.head path)))
+
+
+
+updateUrl : Model -> (Model, Cmd Msg)
+updateUrl model = 
+  let
+    newFragment = 
+      model.collectionTreeModel.selectedCollection
+      |> List.reverse
+      |> List.map Config.shortenUri
+      |> String.join "/"
+    oldUrl = model.url
+    newUrl = { oldUrl | fragment = Just newFragment }
+  in ({ model | url = newUrl }, Nav.pushUrl model.key (Url.toString newUrl))
 
 
 emptyModel : Url.Url -> Nav.Key -> Model
@@ -141,8 +185,9 @@ emptyModel url key =
   { key = key
   , url = url
   , iiif = Iiif.empty
-  , collectionTreeModel = CollectionTree.emptyModel url
-  , collectionViewModel = CollectionView.emptyModel url
+  , collectionTreeModel = CollectionTree.emptyModel
+  , collectionViewModel = CollectionView.emptyModel
+  , manifestViewModel = ManifestView.emptyModel
   , errors = []
   }
 
@@ -151,16 +196,23 @@ outMsgEvaluator msg model =
   case msg of
     LoadManifest manifestUri ->
       (model.iiif, Cmd.none, [])
-        |> U.chain2 (loadManifest manifestUri)
+        |> U.chain2 (loadManifest (Debug.log "loading manifest" manifestUri))
         |> U.mapModel (\m -> {model | iiif = m})
         |> U.mapCmd IiifMsg
         |> U.ignoreOut    
     LoadCollection collectionUri -> 
       (model.iiif, Cmd.none, [])
-        |> U.chain2 (loadCollection collectionUri)
+        |> U.chain2 (loadCollection (Debug.log "loading collection" collectionUri))
         |> U.mapModel (\m -> {model | iiif = m})
         |> U.mapCmd IiifMsg
         |> U.ignoreOut
+    CollectionSelected path ->
+      let collectionUri = List.head path
+      in 
+        collectionViewUpdater (CollectionView.SetCollection collectionUri) model
+        |> U.chain2 updateUrl
+        |> U.evalOut outMsgEvaluator
+    CanvasSelected canvasUri -> (model, Cmd.none)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -173,10 +225,8 @@ update msg model =
         Browser.External href ->
           ( model, Nav.load href )
     UrlChanged url -> 
-      (model, Cmd.none, [])
-        |> U.chain (collectionTreeUpdater (CollectionTree.UrlChanged url))
-        |> U.chain (collectionViewUpdater (CollectionView.UrlChanged url))
-        |> U.evalOut outMsgEvaluator
+      if url == model.url then (model, Cmd.none)
+      else parseUrl url model |> U.evalOut outMsgEvaluator
     AlertMsg index visibility->
       if visibility == Alert.closed then
         ({model | errors = arrayRemove index model.errors}, Cmd.none)
@@ -189,12 +239,21 @@ update msg model =
       (model, Cmd.none, [])
         |> U.chain (collectionViewUpdater collectionViewMsg)
         |> U.evalOut outMsgEvaluator
+    ManifestViewMsg manifestViewMsg ->
+      (model, Cmd.none, [])
+        |> U.chain (manifestViewUpdater manifestViewMsg)
+        |> U.evalOut outMsgEvaluator
     IiifMsg iiifMsg ->
       let (newModel, maybeNotification) = Iiif.update iiifMsg model
       in case maybeNotification of
         Just notification -> update (IiifNotification notification) newModel
         Nothing -> (newModel, Cmd.none)
     IiifNotification notification ->
+      let 
+        _ = case notification of 
+          Iiif.ManifestLoaded uri -> Debug.log "manifest loaded" uri
+          Iiif.CollectionLoaded uri -> Debug.log "collection loaded" uri
+      in
       (model, Cmd.none, [])
         |> U.chain (collectionTreeUpdater (CollectionTree.IiifNotification notification))
         |> U.chain (collectionViewUpdater (CollectionView.IiifNotification notification))
@@ -219,17 +278,21 @@ view model =
   let
     collectionTree = Html.map CollectionTreeMsg <| CollectionTree.view (collectionTreeSubModel model)
     collectionView = Html.map CollectionViewMsg <| CollectionView.view (collectionViewSubModel model)
+    manifestView = Html.map ManifestViewMsg <| ManifestView.view (manifestViewSubModel model)
+    showManifestView = False
+    manifestViewHide = if showManifestView then "" else " hide"
   in
   { title = "Elm IIIF"
   , body = 
-    [ div []
-      [ Grid.containerFluid [] 
-        [ Grid.row []
-          [ Grid.col [ Col.xs4, Col.attrs [ class "col_collection_tree" ] ] [ collectionTree ]
-          , Grid.col [ Col.xs8, Col.attrs [ class "col_collection_view" ] ] [ collectionView ]
+    [ div [ class "manifest_browser_wrapper" ]
+        [ Grid.containerFluid [] 
+          [ Grid.row []
+            [ Grid.col [ Col.xs4, Col.attrs [ class "col_collection_tree" ] ] [ collectionTree ]
+            , Grid.col [ Col.xs8, Col.attrs [ class "col_collection_view" ] ] [ collectionView ]
+            ]
           ]
         ]
-      ],
-      div [ class "error_overlay" ] (List.indexedMap alertDialog model.errors)
+    , div [ class <| "manifest_view_wrapper" ++ manifestViewHide] [manifestView]
+    , div [ class "error_overlay" ] (List.indexedMap alertDialog model.errors)
     ]
   }

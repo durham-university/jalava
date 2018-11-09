@@ -20,8 +20,7 @@ import Utils exposing(iiifLink, pluralise)
 import Iiif exposing(..)
 
 type alias Model =
-  { url : Url.Url
-  , iiif : Iiif
+  { iiif : Iiif
   , collection : Maybe CollectionUri
   , manifestListModel : ManifestList.Model
   , errors : List String
@@ -29,7 +28,6 @@ type alias Model =
 
 type Msg  = SetCollection (Maybe CollectionUri)
           | ManifestListMsg ManifestList.Msg
-          | UrlChanged Url.Url
           | IiifNotification Iiif.Notification
 
 type OutMsg = LoadManifest ManifestUri
@@ -58,36 +56,22 @@ manifestListPipe model =
   >> U.mapOut manifestListOutMapper
 
 
-init : Decode.Value -> Url.Url -> ( Model, Cmd Msg, List OutMsg )
-init flags url = 
+init : Decode.Value -> ( Model, Cmd Msg, List OutMsg )
+init flags = 
   let 
-    baseModel = emptyModel url 
+    baseModel = emptyModel 
   in
     ManifestList.init flags
       |> manifestListPipe baseModel
-      |> U.chain (openUrl url)
 
 
-emptyModel : Url.Url -> Model
-emptyModel url = 
-  { url = url
-  , iiif = Iiif.empty
+emptyModel : Model
+emptyModel = 
+  { iiif = Iiif.empty
   , collection = Nothing
   , manifestListModel = ManifestList.emptyModel
   , errors = []
   }
-
-openUrl : Url.Url -> Model -> ( Model, Cmd Msg, List OutMsg )
-openUrl url model = 
-  case url.fragment of
-    Nothing -> ( { model | url = url }, Cmd.none, [] )
-    Just fragment -> 
-      let 
-        path = String.split "/" fragment
-        lastPart = path |> List.reverse |> List.head
-        uri = Maybe.map Config.completeUri lastPart
-      in
-        update (SetCollection uri) { model | url = url }
 
 
 update : Msg -> Model -> ( Model, Cmd Msg, List OutMsg )
@@ -96,7 +80,6 @@ update msg model =
     ManifestListMsg manifestListMsg -> manifestListUpdater manifestListMsg model
     SetCollection maybeCollectionUri -> 
       setManifestListCollection maybeCollectionUri { model | collection = maybeCollectionUri }
-    UrlChanged url -> openUrl url model
     IiifNotification notification ->
       (model, Cmd.none, [])
         |> U.chain (manifestListUpdater (ManifestList.IiifNotification notification))
