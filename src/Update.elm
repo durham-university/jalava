@@ -22,6 +22,17 @@ chain updater (model, cmd, out) =
     (model2, (catCmd cmd cmd2), out ++ out2)
 
 
+maybeChain :
+  ( a -> modelA -> ( modelA, Cmd msg, List outMsg) ) ->
+  Maybe a ->
+  ( modelA, Cmd msg, List outMsg ) ->
+  ( modelA, Cmd msg, List outMsg )
+maybeChain updater maybeValue =
+  case maybeValue of
+    Nothing -> identity
+    Just v -> chain (updater v)
+
+
 fold :
   ( a -> model -> ( model, Cmd msg, List outMsg ) ) ->
   List a ->
@@ -95,23 +106,37 @@ addOut out2 (model, cmd, out) = (model, cmd, out ++ out2)
 
 
 mapOut : 
-  ( outMsgA -> outMsgB ) -> 
+  ( outMsgA -> List outMsgB ) -> 
   ( model, Cmd msg, List outMsgA ) ->
   ( model, Cmd msg, List outMsgB )
-mapOut mapper (model, cmd, out) = (model, cmd, List.map mapper out)
+mapOut mapper (model, cmd, out) = 
+  (model, cmd, List.foldl ((++) << mapper) [] out)
 
 
 evalOut :
+  ( outMsgA -> model -> (model, Cmd msg, List outMsgB) ) ->
+  ( model, Cmd msg, List outMsgA ) ->
+  ( model, Cmd msg, List outMsgB )
+evalOut evaluator (model, cmd, out) =
+  case out of
+    [] -> (model, cmd, [])
+    x :: xs ->
+      evalOut evaluator (model, cmd, xs)
+      |> chain (evaluator x)
+
+
+evalOut2 :
   ( outMsg -> model -> (model, Cmd msg) ) ->
   ( model, Cmd msg, List outMsg ) ->
   ( model, Cmd msg )
-evalOut evaluator (model, cmd, out) =
+evalOut2 evaluator (model, cmd, out) =
   case out of
     [] -> (model, cmd)
     x :: xs ->
       (model, cmd, xs) 
         |> chain2 (evaluator x)
-        |> evalOut evaluator
+        |> evalOut2 evaluator
+
 
 ignoreOut : ( model, Cmd msg, List outMsg ) -> ( model, Cmd msg )
 ignoreOut (model, cmd, out) = (model, cmd)

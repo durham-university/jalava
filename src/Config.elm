@@ -1,6 +1,7 @@
 module Config exposing(..)
 
 import Iiif
+import Regex
 
 miradorBase = "https://iiif.durham.ac.uk/index.html"
 
@@ -42,3 +43,8 @@ completeUri id =
         in
           "https://iiif.durham.ac.uk/manifests/trifle/32150/" ++ pairtree ++"/" ++ id ++ "/manifest"
       _ -> "https://iiif.durham.ac.uk/manifests/trifle/collection/32150/" ++ id
+
+completeCanvasUri : Iiif.ManifestUri -> String -> Iiif.CanvasUri
+completeCanvasUri manifestUri id = 
+  let re = Maybe.withDefault Regex.never (Regex.fromString "manifest$")
+  in Regex.replace re (\_ -> "canvas/" ++ id) manifestUri

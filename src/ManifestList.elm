@@ -35,10 +35,14 @@ type Msg = AddManifest ManifestUri
          | SetManifests (List ManifestUri)
          | SetCollection CollectionUri
          | ClearCollection
+         | ManifestClicked ManifestUri
+         | CanvasClicked ManifestUri CanvasUri
          | IiifNotification Iiif.Notification
 
 type OutMsg = LoadManifest ManifestUri
             | LoadCollection CollectionUri
+            | ManifestSelected ManifestUri
+            | CanvasSelected ManifestUri CanvasUri
 
 init : Decode.Value -> ( Model, Cmd Msg, List OutMsg )
 init flags = (emptyModel, Cmd.none, [])
@@ -67,6 +71,8 @@ update msg model =
           else
             (model, Cmd.none, [])
         _ -> (model, Cmd.none, [])
+    ManifestClicked manifestUri -> (model, Cmd.none, [ManifestSelected manifestUri])
+    CanvasClicked manifestUri canvasUri -> (model, Cmd.none, [CanvasSelected manifestUri canvasUri])
     
 
 
@@ -89,11 +95,11 @@ updateLoadManifests model =
       |> U.foldOut (\uri m -> [LoadManifest uri]) stubUris
 
 
-view : Model -> Html msg
+view : Model -> Html Msg
 view model = 
   div [ class "manifest_list" ] (List.map (manifestLine model.iiif) (allManifestUris model))
 
-manifestLine : Iiif -> ManifestUri -> Html msg
+manifestLine : Iiif -> ManifestUri -> Html Msg
 manifestLine iiif manifestUri =
   let 
     manifest = Iiif.getManifest iiif manifestUri
@@ -112,7 +118,8 @@ manifestLine iiif manifestUri =
   in
   Grid.row [] [ Grid.col [] [
     Card.config [ Card.attrs [class "manifest_preview_card"] ]
-      |> Card.headerH3 [] (logoHtml ++ [ Html.a [href (Config.manifestViewerUrl manifest)] [text <| Iiif.manifestToString manifest] ] ++ spinnerHtml)
+--      |> Card.headerH3 [] (logoHtml ++ [ Html.a [href (Config.manifestViewerUrl manifest)] [text <| Iiif.manifestToString manifest] ] ++ spinnerHtml)
+      |> Card.headerH3 [] (logoHtml ++ [ Button.button [Button.roleLink, Button.attrs [onClick (ManifestClicked manifestUri)]] [text <| Iiif.manifestToString manifest] ] ++ spinnerHtml)
       |> Card.listGroup 
           [ ListGroup.li [] [ (canvasesLine manifest canvases) ]
           , ListGroup.li [ ListGroup.attrs [class "manifest_details collapse", id details_id] ] [ ManifestDetails.manifestDetails manifest ]
@@ -127,11 +134,12 @@ manifestLine iiif manifestUri =
       |> Card.view
   ]]
 
-canvasesLine : Manifest -> List Canvas -> Html msg
+canvasesLine : Manifest -> List Canvas -> Html Msg
 canvasesLine manifest canvases =
 -- Images need to be keyed. It appears that lazy loading confuses Elm otherwise.
   Keyed.node "div" [ class "canvas_line" ]
-    (List.map (wrapKey <| \c -> a [ class "canvas_preview", href (Config.canvasViewerUrl manifest c) ] [ canvasImgHtml c ]) canvases )
+--    (List.map (wrapKey <| \c -> a [ class "canvas_preview", href (Config.canvasViewerUrl manifest c) ] [ canvasImgHtml c ]) canvases )
+    (List.map (wrapKey <| \c -> Button.button [ Button.roleLink, Button.attrs [class "canvas_preview", onClick (CanvasClicked manifest.id c.id)]] [ canvasImgHtml c ]) canvases )
 
 canvasImgHtml : Canvas -> Html msg
 canvasImgHtml canvas = 

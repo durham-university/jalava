@@ -1,4 +1,4 @@
-module Main exposing(..)
+port module Main exposing(..)
 
 import Browser
 import Browser.Navigation as Nav
@@ -6,6 +6,7 @@ import Browser.Navigation as Nav
 import Http
 import Url
 import Json.Decode as Decode
+import Json.Encode as Encode
 import Set exposing(Set)
 
 import Html exposing (..)
@@ -25,7 +26,6 @@ import CollectionTree
 import CollectionView
 import ManifestView
 
-
 type alias Model =
   { key : Nav.Key
   , url : Url.Url
@@ -33,9 +33,11 @@ type alias Model =
   , collectionTreeModel : CollectionTree.Model
   , collectionViewModel : CollectionView.Model
   , manifestViewModel : ManifestView.Model
+  , screen : Screen
   , errors : List String
   }
 
+type Screen = Browser | Viewer
 
 type Msg
   = LinkClicked Browser.UrlRequest
@@ -51,7 +53,10 @@ type OutMsg
   = LoadCollection CollectionUri
   | LoadManifest ManifestUri
   | CollectionSelected (List CollectionUri)
-  | CanvasSelected CanvasUri
+  | ManifestSelected ManifestUri
+  | CanvasSelected ManifestUri CanvasUri
+  | CanvasOpened ManifestUri CanvasUri
+  | CloseViewer
 
 
 collectionTreeSubModel : Model -> CollectionTree.Model
@@ -59,12 +64,12 @@ collectionTreeSubModel model =
   let subModel = model.collectionTreeModel
   in { subModel | iiif = model.iiif }
 
-collectionTreeOutMapper : CollectionTree.OutMsg -> OutMsg
+collectionTreeOutMapper : CollectionTree.OutMsg -> List OutMsg
 collectionTreeOutMapper msg =
   case msg of
-    CollectionTree.LoadManifest uri -> LoadManifest uri
-    CollectionTree.LoadCollection uri -> LoadCollection uri
-    CollectionTree.CollectionSelected path -> CollectionSelected path
+    CollectionTree.LoadManifest uri -> [LoadManifest uri]
+    CollectionTree.LoadCollection uri -> [LoadCollection uri]
+    CollectionTree.CollectionSelected path -> [CollectionSelected path]
 
 collectionTreeUpdater : CollectionTree.Msg -> Model -> (Model, Cmd Msg, List OutMsg)
 collectionTreeUpdater msg model =
@@ -83,11 +88,13 @@ collectionViewSubModel model =
   let subModel = model.collectionViewModel
   in { subModel | iiif = model.iiif }
 
-collectionViewOutMapper : CollectionView.OutMsg -> OutMsg
+collectionViewOutMapper : CollectionView.OutMsg -> List OutMsg
 collectionViewOutMapper msg =
   case msg of
-    CollectionView.LoadManifest uri -> LoadManifest uri
-    CollectionView.LoadCollection uri -> LoadCollection uri
+    CollectionView.LoadManifest uri -> [LoadManifest uri]
+    CollectionView.LoadCollection uri -> [LoadCollection uri]
+    CollectionView.ManifestSelected uri -> [ManifestSelected uri]
+    CollectionView.CanvasSelected manifestUri canvasUri -> [CanvasSelected manifestUri canvasUri]
 
 collectionViewUpdater : CollectionView.Msg -> Model -> (Model, Cmd Msg, List OutMsg)
 collectionViewUpdater msg model =
@@ -106,10 +113,13 @@ manifestViewSubModel model =
   let subModel = model.manifestViewModel
   in { subModel | iiif = model.iiif }
 
-manifestViewOutMapper : ManifestView.OutMsg -> OutMsg
+manifestViewOutMapper : ManifestView.OutMsg -> List OutMsg
 manifestViewOutMapper msg =
   case msg of
-    ManifestView.CanvasSelected uri -> CanvasSelected uri
+    ManifestView.LoadManifest uri -> [LoadManifest uri]
+    ManifestView.LoadCollection uri -> [LoadCollection uri]
+    ManifestView.CanvasOpened manifestUri canvasUri -> [CanvasOpened manifestUri canvasUri]
+    ManifestView.CloseViewer -> [CloseViewer]
 
 manifestViewUpdater : ManifestView.Msg -> Model -> (Model, Cmd Msg, List OutMsg)
 manifestViewUpdater msg model =
@@ -148,33 +158,59 @@ init flags url key =
         (\m -> CollectionView.init flags 
                 |> collectionViewPipe m )
       |> U.chain (parseUrl url)
-      |> U.evalOut outMsgEvaluator
+      |> U.evalOut2 outMsgEvaluator
 
 
 parseUrl : Url.Url -> Model -> (Model, Cmd Msg, List OutMsg)
 parseUrl url model =
   let 
+    (pathFragment, viewFragment) =
+      case Maybe.map (String.split "!") url.fragment of
+        Nothing -> (Nothing, Nothing)
+        Just [] -> (Nothing, Nothing)
+        Just [x] -> (Just x, Nothing)
+        Just (x :: y :: xs) -> (Just x, Just y)
     path =
-      case url.fragment of
+      case pathFragment of
         Nothing -> []
         Just fragment ->
           String.split "/" fragment
           |> List.map Config.completeUri
           |> List.reverse
+    (selectedManifest, selectedCanvas) = 
+      case Maybe.map (String.split "/") viewFragment of
+        Nothing -> (Nothing, Nothing)
+        Just [] -> (Nothing, Nothing)
+        Just [x] -> (Just (Config.completeUri x), Nothing)
+        Just (x :: y :: xs) -> (Just (Config.completeUri x), Just (Config.completeCanvasUri (Config.completeUri x) y))
+    screen = case selectedManifest of
+      Nothing -> Browser
+      Just x -> Viewer
+    newModel = { model | url = url, screen = screen }
   in
-    collectionTreeUpdater (CollectionTree.SelectPath path) {model | url = url}
+    collectionTreeUpdater (CollectionTree.SelectPath path) newModel
       |> U.chain (collectionViewUpdater (CollectionView.SetCollection (List.head path)))
+      |> U.chain (manifestViewUpdater (ManifestView.SetManifestAndCanvas selectedManifest selectedCanvas))
 
 
 
 updateUrl : Model -> (Model, Cmd Msg)
 updateUrl model = 
   let
-    newFragment = 
+    treePath = 
       model.collectionTreeModel.selectedCollection
       |> List.reverse
       |> List.map Config.shortenUri
       |> String.join "/"
+    viewManifest = 
+      [model.manifestViewModel.manifest, model.manifestViewModel.canvas]
+      |> List.filterMap identity
+      |> List.map Config.shortenUri 
+      |> String.join "/"
+    newFragment = 
+      case model.screen of
+        Browser -> treePath
+        Viewer -> treePath ++ "!" ++ viewManifest
     oldUrl = model.url
     newUrl = { oldUrl | fragment = Just newFragment }
   in ({ model | url = newUrl }, Nav.pushUrl model.key (Url.toString newUrl))
@@ -188,6 +224,7 @@ emptyModel url key =
   , collectionTreeModel = CollectionTree.emptyModel
   , collectionViewModel = CollectionView.emptyModel
   , manifestViewModel = ManifestView.emptyModel
+  , screen = Browser
   , errors = []
   }
 
@@ -196,13 +233,13 @@ outMsgEvaluator msg model =
   case msg of
     LoadManifest manifestUri ->
       (model.iiif, Cmd.none, [])
-        |> U.chain2 (loadManifest (Debug.log "loading manifest" manifestUri))
+        |> U.chain2 (loadManifest manifestUri)
         |> U.mapModel (\m -> {model | iiif = m})
         |> U.mapCmd IiifMsg
         |> U.ignoreOut    
     LoadCollection collectionUri -> 
       (model.iiif, Cmd.none, [])
-        |> U.chain2 (loadCollection (Debug.log "loading collection" collectionUri))
+        |> U.chain2 (loadCollection collectionUri)
         |> U.mapModel (\m -> {model | iiif = m})
         |> U.mapCmd IiifMsg
         |> U.ignoreOut
@@ -211,8 +248,23 @@ outMsgEvaluator msg model =
       in 
         collectionViewUpdater (CollectionView.SetCollection collectionUri) model
         |> U.chain2 updateUrl
-        |> U.evalOut outMsgEvaluator
-    CanvasSelected canvasUri -> (model, Cmd.none)
+        |> U.evalOut2 outMsgEvaluator
+    ManifestSelected uri ->
+        manifestViewUpdater (ManifestView.SetManifest (Just uri)) {model | screen = Viewer}
+        |> U.chain2 updateUrl
+        |> U.evalOut2 outMsgEvaluator
+    CanvasSelected manifestUri canvasUri -> 
+        manifestViewUpdater (ManifestView.SetManifestAndCanvas (Just manifestUri) (Just canvasUri)) {model | screen = Viewer}
+        |> U.chain2 updateUrl
+        |> U.evalOut2 outMsgEvaluator
+    CloseViewer -> 
+        ({model | screen = Browser}, Cmd.none, [])
+        |> U.chain2 updateUrl
+        |> U.evalOut2 outMsgEvaluator
+    CanvasOpened manifestUri canvasUri -> 
+        (model, Cmd.none, [])
+        |> U.chain2 updateUrl
+        |> U.evalOut2 outMsgEvaluator
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -226,7 +278,7 @@ update msg model =
           ( model, Nav.load href )
     UrlChanged url -> 
       if url == model.url then (model, Cmd.none)
-      else parseUrl url model |> U.evalOut outMsgEvaluator
+      else parseUrl url model |> U.evalOut2 outMsgEvaluator
     AlertMsg index visibility->
       if visibility == Alert.closed then
         ({model | errors = arrayRemove index model.errors}, Cmd.none)
@@ -234,15 +286,15 @@ update msg model =
     CollectionTreeMsg collectionTreeMsg ->
       (model, Cmd.none, [])
         |> U.chain (collectionTreeUpdater collectionTreeMsg)
-        |> U.evalOut outMsgEvaluator
+        |> U.evalOut2 outMsgEvaluator
     CollectionViewMsg collectionViewMsg ->
       (model, Cmd.none, [])
         |> U.chain (collectionViewUpdater collectionViewMsg)
-        |> U.evalOut outMsgEvaluator
+        |> U.evalOut2 outMsgEvaluator
     ManifestViewMsg manifestViewMsg ->
       (model, Cmd.none, [])
         |> U.chain (manifestViewUpdater manifestViewMsg)
-        |> U.evalOut outMsgEvaluator
+        |> U.evalOut2 outMsgEvaluator
     IiifMsg iiifMsg ->
       let (newModel, maybeNotification) = Iiif.update iiifMsg model
       in case maybeNotification of
@@ -252,12 +304,13 @@ update msg model =
       let 
         _ = case notification of 
           Iiif.ManifestLoaded uri -> Debug.log "manifest loaded" uri
-          Iiif.CollectionLoaded uri -> Debug.log "collection loaded" uri
+          Iiif.CollectionLoaded uri -> uri
       in
       (model, Cmd.none, [])
         |> U.chain (collectionTreeUpdater (CollectionTree.IiifNotification notification))
         |> U.chain (collectionViewUpdater (CollectionView.IiifNotification notification))
-        |> U.evalOut outMsgEvaluator
+        |> U.chain (manifestViewUpdater (ManifestView.IiifNotification notification))
+        |> U.evalOut2 outMsgEvaluator
 
 
 subscriptions : Model -> Sub Msg
@@ -279,12 +332,12 @@ view model =
     collectionTree = Html.map CollectionTreeMsg <| CollectionTree.view (collectionTreeSubModel model)
     collectionView = Html.map CollectionViewMsg <| CollectionView.view (collectionViewSubModel model)
     manifestView = Html.map ManifestViewMsg <| ManifestView.view (manifestViewSubModel model)
-    showManifestView = False
-    manifestViewHide = if showManifestView then "" else " hide"
+    browserHide = if model.screen == Browser then "" else " hide"
+    manifestViewHide = if model.screen == Viewer then "" else " hide"
   in
   { title = "Elm IIIF"
   , body = 
-    [ div [ class "manifest_browser_wrapper" ]
+    [ div [ class <| "manifest_browser_wrapper" ++ browserHide]
         [ Grid.containerFluid [] 
           [ Grid.row []
             [ Grid.col [ Col.xs4, Col.attrs [ class "col_collection_tree" ] ] [ collectionTree ]

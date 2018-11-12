@@ -58,6 +58,8 @@ div.col_collection_view {
   margin: 0 2px;
 }
 
+.manifest_view_wrapper { background-color: white; }
+
 .collection_tree {
   .sub_collections {
     padding-left: 20px;
@@ -98,18 +100,17 @@ div.col_collection_view {
   .manifest_preview_card {
     .card-header {
       font-size: 1rem;
-      padding-left: 2.2rem;
+      padding: 0.5rem 0.5rem 0.5rem 2.2rem;
       .logo {
         height: 1.5rem;
         position: absolute;
         left: 0.5rem;
-        top: 0.6rem;
+        top: 0.5rem;
       }
+
+      button { padding: 0; }
     }
-    .canvas_line {
-      white-space: nowrap;
-      overflow: hidden;
-    }
+    
     .card-footer {
       color: #666;
       padding: 0.25rem 1.25rem;
@@ -146,22 +147,104 @@ div.col_collection_view {
       }
     }
 
-    .canvas_preview { 
-      display: inline-block;
-      height: 62px; 
-      border-radius: 0.2rem;
-      border: 1px solid transparent;
-      
-      & + .canvas_preview {
-        margin-left: 10px;
-      }
+    margin-top: 1rem;
+  }
+}
 
-      &:hover {
-        box-shadow: 0 0 0 0.1rem rgba(0,123,255,.25);
-        border-color: rgba(0,123,255,.5);
-      }
+.manifest_list .manifest_preview_card, .manifest_view .canvas_list {
+  .canvas_line {
+    white-space: nowrap;
+    overflow: hidden;
+    padding: 2px;
+    margin: -2px;
+  }
+
+  .canvas_preview { 
+    display: inline-block;
+    height: 62px; 
+    border-radius: 0.2rem;
+    border: 1px solid transparent;
+    padding: 0;
+    
+    & + .canvas_preview {
+      margin-left: 10px;
     }
 
-    margin-top: 1rem;
+    &:hover {
+      box-shadow: 0 0 0 0.1rem rgba(0,123,255,.25);
+      border-color: rgba(0,123,255,.5);
+    }
+  }
+}
+
+.manifest_view {
+  .title {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 38px;
+    overflow: hidden;
+
+    h1 {
+      font-size: 1.5rem;
+      white-space: nowrap;
+      line-height: 38px;
+    }
+
+    .close_button {
+      float: left;
+      font-size: 16px;
+    }
+
+    text-align: center;
+  }
+
+  .manifest_zoomer {
+    position: absolute;
+    top: 38px;
+    bottom: 100px;
+    width: 100%;
+    &>.osd_container {
+      width: 100%;
+      height: 100%;
+    }
+  }
+
+
+  .canvas_list {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    bottom: 0;
+    height: 100px;
+    overflow-x: scroll;
+    overflow-y: hidden;
+
+    .canvas_line {
+      height: 100px;
+      margin: 0;
+      overflow: unset;
+    
+      .canvas_button {
+        padding-top: 2px;
+        overflow: hidden;
+        margin: 0 5px;
+        display: inline-block;
+        text-align: center;
+        min-width: 70px;
+
+        &.selected {
+          .canvas_label {
+            font-weight: bold;
+          }
+          .canvas_preview {
+            box-shadow: 0 0 0.1rem 0.1rem rgba(0,123,255,.5);
+            border-color: rgba(0,123,255,.75);  
+          }
+        }
+      }
+
+    }
   }
 }

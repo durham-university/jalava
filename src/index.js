@@ -1,6 +1,7 @@
 'use strict';
 
 import 'lazysizes';
+var OpenSeadragon = require('openseadragon');
 require('./index.html');
 require('./main.scss');
 
@@ -14,3 +15,27 @@ var app = Elm.Elm.Main.init({
   }
 });
 
+var osdViewers = {};
+
+app.ports.osdCmd.subscribe(function (data) {
+  console.log("osdCmd " + JSON.stringify(data));
+
+  if (data["type"] == "setSource") {
+    var viewerId = data["for"];
+    var viewerElem = document.getElementById(viewerId);
+    var viewer = null;
+    if (viewerElem.childElementCount == 0) {
+      viewer = OpenSeadragon({
+        id: viewerId,
+        prefixUrl: "osd/"
+      })
+      osdViewers[viewerId] = viewer;
+    }
+    else {
+      viewer = osdViewers[viewerId];
+    }
+
+    if(data["value"] == "") viewer.close();
+    else viewer.open(data["value"]);
+  }
+});

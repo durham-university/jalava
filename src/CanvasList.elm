@@ -5,6 +5,7 @@ import Json.Decode as Decode
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
+import Html.Keyed as Keyed
 
 import Bootstrap.Grid as Grid
 import Bootstrap.Grid.Row as Row
@@ -13,7 +14,7 @@ import Bootstrap.Button as Button
 
 import Update as U
 import Config
-import Utils exposing(iiifLink, pluralise)
+import Utils exposing(iiifLink, pluralise, wrapKey)
 
 import Iiif exposing(..)
 
@@ -26,9 +27,11 @@ type alias Model =
   }
 
 type Msg  = SetManifest (Maybe ManifestUri)
+          | SelectCanvas (Maybe CanvasUri)
+          | CanvasClicked CanvasUri
           | IiifNotification Iiif.Notification
 
-type OutMsg = CanvasSelected CanvasUri
+type OutMsg = CanvasOpened CanvasUri
 
 
 init : Decode.Value -> ( Model, Cmd Msg, List OutMsg )
@@ -47,7 +50,9 @@ update : Msg -> Model -> ( Model, Cmd Msg, List OutMsg )
 update msg model =
   case msg of
     SetManifest maybeManifestUri -> 
-      ({ model | selectedCanvas = Maybe.withDefault maybeManifestUri Nothing }, Cmd.none, [])
+      ({ model | manifest = Maybe.withDefault maybeManifestUri Nothing, selectedCanvas = Nothing }, Cmd.none, [])
+    SelectCanvas canvasUri -> ({model | selectedCanvas = canvasUri}, Cmd.none, [])
+    CanvasClicked canvasUri -> ({model | selectedCanvas = Just canvasUri}, Cmd.none, [CanvasOpened canvasUri])
     IiifNotification notification -> (model, Cmd.none, [])
 
 view : Model -> Html Msg
@@ -64,11 +69,25 @@ view model =
           if isStub manifest then
             [i [ class "spinner fas fa-spinner" ] []]
           else
-            (List.map (\c -> a [ href "#" ] [ canvasImgHtml c ]) canvases )
+            [ Keyed.node "div" [class "canvas_line"]
+              (List.map (wrapKey (canvasButton model)) canvases )
+              ]
+--            (List.map (\c -> a [ href "#" ] [ canvasImgHtml c ]) canvases )
       Nothing -> []
+
+canvasButton : Model -> Canvas -> Html Msg
+canvasButton model canvas = 
+  let
+    width = round ((toFloat canvas.width) / (toFloat canvas.height) * 60.0)
+    selected = if model.selectedCanvas == Just canvas.id then " selected" else ""
+  in
+  div [class ("canvas_button" ++ selected)] 
+    [ Button.button [ Button.roleLink, Button.attrs [style "width" ((String.fromInt width) ++ "px;"), class "canvas_preview", onClick (CanvasClicked canvas.id)]] [ canvasImgHtml canvas ]
+    , div [class "canvas_label"] [text (Maybe.withDefault "" canvas.label)]
+    ]
 
 canvasImgHtml : Canvas -> Html msg
 canvasImgHtml canvas = 
-  img [ class "lazyload canvas_preview", src "spinner_40x60.gif", attribute "data-src" <| Iiif.canvasUrl (Iiif.FitH 60) canvas] []
+  img [ class "lazyload", src "spinner_40x60.gif", attribute "data-src" <| Iiif.canvasUrl (Iiif.FitH 60) canvas] []
 
 

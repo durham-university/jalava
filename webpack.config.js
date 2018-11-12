@@ -1,4 +1,4 @@
-var webpack = require('webpack');
+const CopyWebpackPlugin = require('copy-webpack-plugin')
 
 module.exports = {
   mode: 'development',
@@ -14,6 +14,10 @@ module.exports = {
   devServer: {
     contentBase: 'public'
   },
+
+  plugins : [
+    new CopyWebpackPlugin([{from: 'node_modules/openseadragon/build/openseadragon/images', to :'osd/'}])
+  ],
 
   module: {
     rules: [

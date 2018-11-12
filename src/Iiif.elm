@@ -319,6 +319,31 @@ getCollection iiif collectionUri = getObject collectionUri stubCollection iiif.c
 getCollections : Iiif -> List CollectionUri -> List Collection
 getCollections iiif = List.map (getCollection iiif)
 
+getCanvas : Manifest -> CanvasUri -> Maybe Canvas
+getCanvas manifest canvasUri = 
+  let 
+    findCanvas : List Canvas -> Maybe Canvas
+    findCanvas list = 
+      case list of
+        [] -> Nothing
+        x :: xs -> if x.id == canvasUri then Just x else findCanvas xs
+  in
+    List.map (findCanvas << .canvases) manifest.sequences
+    |> List.filterMap identity 
+    |> List.head
+
+osdSourceImage : Image -> String
+osdSourceImage image =
+  case image.resource.service of
+    -- TODO: Should check service profile
+    Just service -> service.id ++ "/info.json"
+    Nothing -> image.resource.id
+
+osdSource : Canvas -> Maybe String
+osdSource canvas = 
+  List.head canvas.images
+  |> Maybe.map osdSourceImage
+
 toString : String -> { a | label : Maybe String } -> String
 toString default obj =
   case obj.label of

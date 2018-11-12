@@ -32,17 +32,21 @@ type Msg  = SetCollection (Maybe CollectionUri)
 
 type OutMsg = LoadManifest ManifestUri
             | LoadCollection CollectionUri
+            | ManifestSelected ManifestUri
+            | CanvasSelected ManifestUri CanvasUri
 
 manifestListSubModel : Model -> ManifestList.Model
 manifestListSubModel model =
   let subModel = model.manifestListModel
   in { subModel | iiif = model.iiif }
 
-manifestListOutMapper : ManifestList.OutMsg -> OutMsg
+manifestListOutMapper : ManifestList.OutMsg -> List OutMsg
 manifestListOutMapper msg =
   case msg of
-    ManifestList.LoadManifest uri -> LoadManifest uri
-    ManifestList.LoadCollection uri -> LoadCollection uri
+    ManifestList.LoadManifest uri -> [LoadManifest uri]
+    ManifestList.LoadCollection uri -> [LoadCollection uri]
+    ManifestList.ManifestSelected uri -> [ManifestSelected uri]
+    ManifestList.CanvasSelected manifestUri canvasUri -> [CanvasSelected manifestUri canvasUri]
 
 manifestListUpdater : ManifestList.Msg -> Model -> (Model, Cmd Msg, List OutMsg)
 manifestListUpdater msg model =
