@@ -7,7 +7,10 @@ import Dict
 import Iiif exposing(..)
 
 manifestDetails : Manifest -> Html msg
-manifestDetails manifest =
+manifestDetails manifest = manifestDetailsExtras manifest []
+
+manifestDetailsExtras : Manifest -> List (String, Maybe (Html msg)) -> Html msg
+manifestDetailsExtras manifest extraValues =
   let 
     propertyHtml : String -> Maybe (Html msg) -> List (Html msg)
     propertyHtml label maybeValue = 
@@ -37,12 +40,16 @@ manifestDetails manifest =
         Nothing -> []
         Just link ->
           propertyHtmlLink label (Maybe.withDefault (link.id) link.label) (Just link.id)
+    
+    extras = List.foldl (\(l, v) acc -> acc ++ (propertyHtml l v)) [] extraValues
   in
   dl [ class "row" ] (
-       propertyHtmlText "Attribution" manifest.attribution
+       propertyHtmlText "Title" manifest.label
+    ++ propertyHtmlText "Attribution" manifest.attribution
     ++ propertyHtmlText "Description" manifest.description
     ++ Dict.foldl metadataFolder [] manifest.metadata
     ++ manifestLinkHtml "See also" manifest.seeAlso
     ++ manifestLinkHtml "Related" manifest.related
     ++ propertyHtmlLink "License" (Maybe.withDefault "License" manifest.license) manifest.license
+    ++ extras
   )

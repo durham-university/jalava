@@ -79,10 +79,12 @@ div.col_collection_view {
 }
 
 .collection_view {
-  .title_row { margin-top: 15px; }
+  .title_row { 
+    margin-top: 15px; 
+    &>.col { display:flex }
+  }
 
   .logo {
-    float: left;
     &>img { height: 60px; }
   }
 
@@ -100,23 +102,32 @@ div.col_collection_view {
   .manifest_preview_card {
     .card-header {
       font-size: 1rem;
-      padding: 0.5rem 0.5rem 0.5rem 2.2rem;
+      padding: 0.5rem;
+      overflow: hidden;
+      display: flex;
+
       .logo {
         height: 1.5rem;
-        position: absolute;
-        left: 0.5rem;
-        top: 0.5rem;
+        order: 1;
       }
 
-      button { padding: 0; }
+      button { 
+        text-align: left;
+        padding: 0; 
+        flex-grow: 1; 
+        order: 2; 
+      }
     }
     
     .card-footer {
       color: #666;
       padding: 0.25rem 1.25rem;
+      display: flex;
+      align-items: center;
 
       .show_details {
-        float: left;
+        flex-grow: 1;
+
         button { 
           padding: 0;
           color: #666; 
@@ -130,21 +141,12 @@ div.col_collection_view {
         }
       }
       .image_count {
-        float: right;
-        padding-right: 28px;
-
-
+        padding-right: 5px;
         &:after {
           content: ' - ';
         }
       }
 
-      .iiif_link {
-        position: absolute;
-        display: inline-block;
-        right: 19px;
-        bottom: 10px;
-      }
     }
 
     margin-top: 1rem;
@@ -158,6 +160,8 @@ div.col_collection_view {
     padding: 2px;
     margin: -2px;
   }
+
+  .card-header .btn { white-space: normal; }
 
   .canvas_preview { 
     display: inline-block;
@@ -178,23 +182,38 @@ div.col_collection_view {
 }
 
 .manifest_view {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: inherit;
+
   .title {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 38px;
-    overflow: hidden;
+    background-color: inherit;
+    display: flex;
+    justify-content: space-between;
+
+    .logo { height: 38px; }
 
     h1 {
       font-size: 1.5rem;
       white-space: nowrap;
+      overflow: hidden;
       line-height: 38px;
+      margin: 0 0.5rem;
     }
 
-    .close_button {
-      float: left;
+    .close_button, .menu_button {
       font-size: 16px;
+      width: 40px;
+      height: 38px;
     }
 
     text-align: center;
@@ -211,6 +230,42 @@ div.col_collection_view {
     }
   }
 
+  .manifest_view_menu {
+    position: absolute;
+    width: 40%;
+    top: 38px;
+    bottom: 100px;
+    right: -45%;
+    background-color: inherit;
+    box-shadow: 0 0 0.1rem 0.1rem rgba(0,0,0,0.25);
+    transition: right .35s ease;
+    border: 1px solid #ccc;
+    transition: right .35s ease;
+
+    &.show {
+      right: 0%;
+    }
+    
+    &>div {
+      display: flex;
+      flex-direction: column;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+
+      &>.nav-tabs {
+        flex-shrink: 0;
+      }
+      &>.tab-content {
+        overflow-y: scroll;
+      }
+    }
+    .tab-content>.tab-pane {
+      padding-top: 5px;
+    }
+  }
 
   .canvas_list {
     position: absolute;
@@ -220,6 +275,7 @@ div.col_collection_view {
     height: 100px;
     overflow-x: scroll;
     overflow-y: hidden;
+    background-color: inherit;
 
     .canvas_line {
       height: 100px;

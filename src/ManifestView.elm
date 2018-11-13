@@ -18,6 +18,7 @@ import Config
 import Utils exposing(iiifLink, pluralise)
 
 import CanvasList
+import ManifestMenu
 
 import Iiif exposing(..)
 
@@ -29,15 +30,21 @@ type alias Model =
   , canvas : Maybe CanvasUri
   , canvasListModel : CanvasList.Model
   , osdElemId : String
-  , osdSet : Bool
+  , menuModel : ManifestMenu.Model
   , errors : List String
+  }
+
+type alias MenuModel =
+  { open : Bool
   }
 
 
 type Msg  = SetManifest (Maybe ManifestUri)
           | SetManifestAndCanvas (Maybe ManifestUri) (Maybe CanvasUri)
           | CanvasListMsg CanvasList.Msg
+          | ManifestMenuMsg ManifestMenu.Msg
           | IiifNotification Iiif.Notification
+          | SetMenuOpen Bool
           | CloseClicked
 
 type OutMsg = LoadManifest ManifestUri
@@ -72,6 +79,29 @@ canvasListPipe model =
   >> U.evalOut canvasListOutEvaluator
 
 
+manifestMenuSubModel : Model -> ManifestMenu.Model
+manifestMenuSubModel model =
+  let subModel = model.menuModel
+  in { subModel | iiif = model.iiif }
+
+manifestMenuOutMapper : ManifestMenu.OutMsg -> List OutMsg
+manifestMenuOutMapper msg =
+  case msg of
+    ManifestMenu.Nop -> []
+
+manifestMenuUpdater : ManifestMenu.Msg -> Model -> (Model, Cmd Msg, List OutMsg)
+manifestMenuUpdater msg model =
+  ManifestMenu.update msg (manifestMenuSubModel model)
+    |> manifestMenuPipe model
+
+manifestMenuPipe : Model -> (ManifestMenu.Model, Cmd ManifestMenu.Msg, List ManifestMenu.OutMsg) -> (Model, Cmd Msg, List OutMsg)
+manifestMenuPipe model = 
+  U.mapCmd ManifestMenuMsg
+  >> U.mapModel (\m -> { model | menuModel = {m | iiif = Iiif.empty}, errors = model.errors ++ m.errors})
+  >> U.mapOut manifestMenuOutMapper
+
+
+
 openCanvasInOsd : Model -> ManifestUri -> CanvasUri -> (Model, Cmd Msg, List OutMsg)
 openCanvasInOsd model manifestUri canvasUri = 
   let
@@ -84,11 +114,8 @@ openCanvasInOsd model manifestUri canvasUri =
         , ("for", Encode.string model.osdElemId)
         , ("value", Encode.string source)
         ])
-    newModel = case maybeSource of
-      Nothing -> {model | osdSet = False}
-      Just _ -> {model | osdSet = True}
   in
-    (newModel, cmd, [CanvasOpened manifestUri canvasUri])
+    (model, cmd, [CanvasOpened manifestUri canvasUri])
 
 
 init : Decode.Value -> ( Model, Cmd Msg, List OutMsg )
@@ -108,7 +135,7 @@ emptyModel  =
   , canvas = Nothing
   , canvasListModel = CanvasList.emptyModel
   , osdElemId = "manifest_view_osd"
-  , osdSet = False
+  , menuModel = ManifestMenu.emptyModel
   , errors = []
   }
 
@@ -136,13 +163,22 @@ update msg model =
       ({model | manifest = maybeManifestUri, canvas = maybeCanvasUri}, Cmd.none, loadMsg)
         |> U.chain (canvasListUpdater (CanvasList.SetManifest maybeManifestUri))
         |> U.chain (canvasListUpdater (CanvasList.SelectCanvas maybeCanvasUri))
+        |> U.chain (manifestMenuUpdater (ManifestMenu.SetManifest maybeManifestUri))
         |> U.maybeChain (\(ma, ca) m -> openCanvasInOsd m ma ca) (Maybe.map2 (\x y -> (x, y)) maybeManifestUri maybeCanvasUri)
     CanvasListMsg canvasListMsg -> canvasListUpdater canvasListMsg model
+    ManifestMenuMsg manifestMenuMsg -> manifestMenuUpdater manifestMenuMsg model
     IiifNotification notification -> 
       (model, Cmd.none, [])
         |> U.chain (osdNotification notification)
         |> U.chain (canvasListUpdater (CanvasList.IiifNotification notification))
     CloseClicked -> (model, Cmd.none, [CloseViewer])
+    SetMenuOpen open -> 
+      let 
+        menuModel = model.menuModel
+        newMenuModel = { menuModel | open = open }
+      in ({model | menuModel = newMenuModel}, Cmd.none, [])
+
+      
 
 
 osdNotification : Iiif.Notification -> Model -> (Model, Cmd Msg, List OutMsg)
@@ -164,16 +200,23 @@ view : Model -> Html Msg
 view model = 
   let
     canvasList = Html.map CanvasListMsg <| CanvasList.view (canvasListSubModel model)
+    manifestMenu = Html.map ManifestMenuMsg <| ManifestMenu.view (manifestMenuSubModel model)
     maybeManifest = Maybe.map (getManifest model.iiif) model.manifest
+    logoHtml = case Maybe.andThen .logo maybeManifest of
+        Just logo -> img [src logo, class "logo"] []
+        Nothing -> text ""
     title = Maybe.withDefault "" (Maybe.map manifestToString maybeManifest)
+    menuOpenClass = if model.menuModel.open then " show" else ""
   in
   div [ class "manifest_view" ] 
-    [ div [ class "title" ] 
-      [ Button.button [Button.light, Button.attrs [ class "close_button", onClick CloseClicked ]] [i [ class "fas fa-arrow-left" ] []]
-      , h1 [] [ text title ] 
-      ]
-    , div [ class "manifest_zoomer" ] 
+    [ div [ class "manifest_zoomer" ] 
       [ Lazy.lazy osdElement model.osdElemId
+      ]
+    , manifestMenu
+    , div [ class "title" ] 
+      [ Button.button [Button.light, Button.attrs [ class "close_button", onClick CloseClicked ]] [i [ class "fas fa-arrow-left" ] []]
+      , h1 [] [ logoHtml, text title ] 
+      , Button.button [Button.light, Button.attrs [ class "menu_button", onClick (SetMenuOpen (not model.menuModel.open)) ]] [i [class "fas fa-bars"] []]
       ]
     , canvasList
     ]
