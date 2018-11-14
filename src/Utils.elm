@@ -31,3 +31,7 @@ pluralise count singular plural =
 
 wrapKey : ( {a | id: String} -> b ) -> ( {a | id: String} -> ( String, b ) )
 wrapKey f = \o -> (o.id, f o)
+
+
+spinner : Html msg
+spinner = Html.img [ Html.Attributes.src "spinner.gif", Html.Attributes.class "spinner"] []

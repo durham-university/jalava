@@ -39,3 +39,27 @@ app.ports.osdCmd.subscribe(function (data) {
     else viewer.open(data["value"]);
   }
 });
+
+app.ports.scrollToView.subscribe(function (data) {
+  console.log("scrollToView " + JSON.stringify(data));
+  // requestAnimationFrame forces dom updates to happen first
+  requestAnimationFrame(function(){
+    var container = $(data["container"]);
+    var item = container.find(data["item"]);
+  
+    if(item.length > 0) {
+      if(data["axis"] == "x"){
+        var xpos = item.offset().left + container.scrollLeft();
+        var scrollPos = xpos - container.width()/2.0 + item.width()/2.0;
+        if(data["animate"]) container.animate({scrollLeft: scrollPos});
+        else container.scrollLeft(scrollPos)
+      }
+      else {
+        var ypos = item.offset().top + container.scrollTop();
+        var scrollPos = ypos - container.height()/2.0 + item.height()/2.0;
+        if(data["animate"]) container.animate({scrollTop: scrollPos});
+        else container.scrollTop(scrollPos)
+      }
+    }  
+  })
+});

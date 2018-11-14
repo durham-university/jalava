@@ -22,6 +22,8 @@ type alias ResourceUri = Uri
 
 type alias ServiceUri = Uri
 
+type alias RangeUri = Uri
+
 type alias ManifestDict = Dict ManifestUri Manifest
 
 type alias CollectionDict = Dict CollectionUri Collection
@@ -39,6 +41,7 @@ type alias Manifest =
   , related : Maybe ManifestLink
   , seeAlso : Maybe ManifestLink
   , sequences : List Sequence
+  , structures : List Range
   , status : Status
   }
 
@@ -132,6 +135,25 @@ serviceDecoder =
     |> required "@id" Decode.string
     |> required "profile" Decode.string
 
+
+type alias Range =
+  { id : RangeUri 
+  , viewingHint : Maybe String
+  , label : Maybe String
+  , canvases : List CanvasUri
+  , ranges : List RangeUri
+  }
+
+rangeDecoder : Decode.Decoder Range
+rangeDecoder =
+  Decode.succeed Range
+    |> required "@id" Decode.string
+    |> optional "viewingHint" (Decode.nullable Decode.string) Nothing
+    |> optional "label" (Decode.nullable Decode.string) Nothing
+    |> optional "canvases" (Decode.list Decode.string) []
+    |> optional "ranges" (Decode.list Decode.string) []
+
+
 type alias Iiif =
   { collections : CollectionDict
   , manifests : ManifestDict
@@ -161,6 +183,7 @@ stubManifest id label logo =
   , related = Nothing
   , seeAlso = Nothing
   , sequences = []
+  , structures = []
   , status = Stub
   }
 
@@ -188,6 +211,7 @@ manifestDecoder =
       |> optional "related" (Decode.nullable manifestLinkDecoder) Nothing
       |> optional "seeAlso" (Decode.nullable manifestLinkDecoder) Nothing
       |> optional "sequences" (Decode.list sequenceDecoder) []
+      |> optional "structures" (Decode.list rangeDecoder) []
       |> hardcoded Full
     manifestUri = Decode.map .id manifest
     manifestDict = Decode.map2 Dict.singleton manifestUri manifest
@@ -318,6 +342,26 @@ getCollection iiif collectionUri = getObject collectionUri stubCollection iiif.c
 
 getCollections : Iiif -> List CollectionUri -> List Collection
 getCollections iiif = List.map (getCollection iiif)
+
+getRange : Manifest -> RangeUri -> Maybe Range
+getRange manifest rangeUri =
+  let
+    findRange : List Range -> Maybe Range
+    findRange list =
+      case list of
+        [] -> Nothing
+        x :: xs -> if x.id == rangeUri then Just x else findRange xs
+  in
+    findRange manifest.structures
+
+getRanges : Manifest -> List RangeUri -> List Range
+getRanges manifest rangeUris = 
+  List.map (getRange manifest) rangeUris
+  |> List.filterMap identity
+
+getTopRanges : Manifest -> List Range
+getTopRanges manifest =
+  List.filter (\r -> r.viewingHint == Just "top") manifest.structures
 
 getCanvas : Manifest -> CanvasUri -> Maybe Canvas
 getCanvas manifest canvasUri = 

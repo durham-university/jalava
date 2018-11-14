@@ -1,4 +1,4 @@
-module CanvasList exposing(Model, Msg(..), OutMsg(..), init, view, update, emptyModel)
+module CanvasList exposing(Model, Msg(..), OutMsg(..), init, view, update, emptyModel, buttonIdFor)
 
 import Url
 import Json.Decode as Decode
@@ -14,7 +14,7 @@ import Bootstrap.Button as Button
 
 import Update as U
 import Config
-import Utils exposing(iiifLink, pluralise, wrapKey)
+import Utils exposing(iiifLink, pluralise, wrapKey, spinner)
 
 import Iiif exposing(..)
 
@@ -67,7 +67,7 @@ view model =
           canvases = Maybe.withDefault [] maybeCanvases
         in
           if isStub manifest then
-            [i [ class "spinner fas fa-spinner" ] []]
+            [spinner]
           else
             [ Keyed.node "div" [class "canvas_line"]
               (List.map (wrapKey (canvasButton model)) canvases )
@@ -75,13 +75,17 @@ view model =
 --            (List.map (\c -> a [ href "#" ] [ canvasImgHtml c ]) canvases )
       Nothing -> []
 
+
+buttonIdFor : CanvasUri -> String
+buttonIdFor canvasUri = "canvas_button_" ++ (Config.shortenUri canvasUri)
+
 canvasButton : Model -> Canvas -> Html Msg
 canvasButton model canvas = 
   let
     width = round ((toFloat canvas.width) / (toFloat canvas.height) * 60.0)
     selected = if model.selectedCanvas == Just canvas.id then " selected" else ""
   in
-  div [class ("canvas_button" ++ selected)] 
+  div [class ("canvas_button" ++ selected), id (buttonIdFor canvas.id)] 
     [ Button.button [ Button.roleLink, Button.attrs [style "width" ((String.fromInt width) ++ "px;"), class "canvas_preview", onClick (CanvasClicked canvas.id)]] [ canvasImgHtml canvas ]
     , div [class "canvas_label"] [text (Maybe.withDefault "" canvas.label)]
     ]

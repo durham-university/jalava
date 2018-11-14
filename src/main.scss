@@ -42,9 +42,9 @@ div.col_collection_view {
 
 .hide { display: none; }
 
-.spinner {
-  position: relative;
-  animation: fa-spin 1s infinite linear;
+img.spinner {
+  width: 16px;
+  height: 16px;
 }
 
 .iiif_link {
@@ -105,6 +105,7 @@ div.col_collection_view {
       padding: 0.5rem;
       overflow: hidden;
       display: flex;
+      align-items: center;
 
       .logo {
         height: 1.5rem;
@@ -190,7 +191,7 @@ div.col_collection_view {
   overflow: hidden;
   background-color: inherit;
 
-  .title {
+  &>.title {
     position: absolute;
     top: 0;
     left: 0;
@@ -259,7 +260,17 @@ div.col_collection_view {
         flex-shrink: 0;
       }
       &>.tab-content {
-        overflow-y: scroll;
+        overflow: hidden;
+        position: relative;
+        flex-grow: 1;
+        &>.tab-pane {
+          overflow-y: scroll;
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+        }
       }
     }
     .tab-content>.tab-pane {
@@ -302,5 +313,19 @@ div.col_collection_view {
       }
 
     }
+  }
+}
+
+.structures_view {
+  .range_node {
+    &.selected>.title {
+      border: 3px solid rgba(0, 123, 255, .25);
+      border-radius: 0.25rem;
+      background-color: rgba(0, 123, 255, .1);
+    }
+  }
+
+  .sub_ranges {
+    padding-left: 20px;
   }
 }

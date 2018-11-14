@@ -15,7 +15,7 @@ import Bootstrap.Button as Button
 
 import Update as U
 import Config
-import Utils exposing(iiifLink, pluralise)
+import Utils exposing(iiifLink, pluralise, flip)
 
 import CanvasList
 import ManifestMenu
@@ -23,6 +23,8 @@ import ManifestMenu
 import Iiif exposing(..)
 
 port osdCmd : Encode.Value -> Cmd msg
+
+port scrollToView : Encode.Value -> Cmd msg
 
 type alias Model =
   { iiif : Iiif
@@ -40,6 +42,7 @@ type alias MenuModel =
 
 
 type Msg  = SetManifest (Maybe ManifestUri)
+          | SetCanvas (Maybe CanvasUri)
           | SetManifestAndCanvas (Maybe ManifestUri) (Maybe CanvasUri)
           | CanvasListMsg CanvasList.Msg
           | ManifestMenuMsg ManifestMenu.Msg
@@ -64,8 +67,7 @@ canvasListOutEvaluator msg model =
     CanvasList.CanvasOpened uri -> 
       case model.manifest of
         Nothing -> (model, Cmd.none, [])
-        Just manifestUri -> 
-          openCanvasInOsd {model | canvas = Just uri} manifestUri uri
+        Just manifestUri -> update (SetCanvas (Just uri)) model
 
 canvasListUpdater : CanvasList.Msg -> Model -> (Model, Cmd Msg, List OutMsg)
 canvasListUpdater msg model =
@@ -84,10 +86,18 @@ manifestMenuSubModel model =
   let subModel = model.menuModel
   in { subModel | iiif = model.iiif }
 
-manifestMenuOutMapper : ManifestMenu.OutMsg -> List OutMsg
-manifestMenuOutMapper msg =
+manifestMenuOutEvaluator : ManifestMenu.OutMsg -> Model -> (Model, Cmd Msg, List OutMsg)
+manifestMenuOutEvaluator msg model =
   case msg of
-    ManifestMenu.Nop -> []
+    ManifestMenu.RangeSelected rangeUri ->
+      let
+        maybeManifest = Maybe.map (getManifest model.iiif) model.manifest
+        maybeRange = Maybe.andThen (flip getRange <| rangeUri) maybeManifest
+        maybeCanvasUri = Maybe.andThen (List.head) (Maybe.map .canvases maybeRange)
+      in
+        case maybeCanvasUri of
+          Just canvasUri -> update (SetCanvas (Just canvasUri)) model
+          Nothing -> (model, Cmd.none, [])
 
 manifestMenuUpdater : ManifestMenu.Msg -> Model -> (Model, Cmd Msg, List OutMsg)
 manifestMenuUpdater msg model =
@@ -98,7 +108,7 @@ manifestMenuPipe : Model -> (ManifestMenu.Model, Cmd ManifestMenu.Msg, List Mani
 manifestMenuPipe model = 
   U.mapCmd ManifestMenuMsg
   >> U.mapModel (\m -> { model | menuModel = {m | iiif = Iiif.empty}, errors = model.errors ++ m.errors})
-  >> U.mapOut manifestMenuOutMapper
+  >> U.evalOut manifestMenuOutEvaluator
 
 
 
@@ -116,6 +126,22 @@ openCanvasInOsd model manifestUri canvasUri =
         ])
   in
     (model, cmd, [CanvasOpened manifestUri canvasUri])
+
+
+scrollCanvasLine : Bool -> Model -> (Model, Cmd Msg, List OutMsg)
+scrollCanvasLine animate model =
+  case model.canvas of
+    Nothing -> (model, Cmd.none, [])
+    Just canvasUri -> 
+      let 
+        buttonId = CanvasList.buttonIdFor canvasUri
+        scrollCmd = scrollToView (Encode.object
+          [ ("container", Encode.string ".manifest_view .canvas_list")
+          , ("item", Encode.string ("#" ++ buttonId))
+          , ("axis", Encode.string "x")
+          , ("animate", Encode.bool animate)
+          ])
+      in (model, scrollCmd, [])
 
 
 init : Decode.Value -> ( Model, Cmd Msg, List OutMsg )
@@ -151,6 +177,7 @@ update msg model =
           |> Maybe.map .id
       in 
         update (SetManifestAndCanvas maybeManifestUri maybeFirstCanvasUri) model
+    SetCanvas maybeCanvasUri -> update (SetManifestAndCanvas model.manifest maybeCanvasUri) model
     SetManifestAndCanvas maybeManifestUri maybeCanvasUri ->
       let
         needsLoading = Maybe.map (getManifest model.iiif) maybeManifestUri 
@@ -159,12 +186,16 @@ update msg model =
         loadMsg = 
           if needsLoading then [LoadManifest (Maybe.withDefault "" maybeManifestUri)]
           else []
+        manifestChanging = model.manifest /= maybeManifestUri
       in
       ({model | manifest = maybeManifestUri, canvas = maybeCanvasUri}, Cmd.none, loadMsg)
         |> U.chain (canvasListUpdater (CanvasList.SetManifest maybeManifestUri))
         |> U.chain (canvasListUpdater (CanvasList.SelectCanvas maybeCanvasUri))
         |> U.chain (manifestMenuUpdater (ManifestMenu.SetManifest maybeManifestUri))
+        |> U.chain (manifestMenuUpdater (ManifestMenu.SetCanvas maybeCanvasUri))
+        |> U.chain (manifestMenuUpdater (ManifestMenu.SetMenuOpen (model.menuModel.open && not manifestChanging)))
         |> U.maybeChain (\(ma, ca) m -> openCanvasInOsd m ma ca) (Maybe.map2 (\x y -> (x, y)) maybeManifestUri maybeCanvasUri)
+        |> U.chain (scrollCanvasLine (not manifestChanging))
     CanvasListMsg canvasListMsg -> canvasListUpdater canvasListMsg model
     ManifestMenuMsg manifestMenuMsg -> manifestMenuUpdater manifestMenuMsg model
     IiifNotification notification -> 
@@ -216,7 +247,7 @@ view model =
     , div [ class "title" ] 
       [ Button.button [Button.light, Button.attrs [ class "close_button", onClick CloseClicked ]] [i [ class "fas fa-arrow-left" ] []]
       , h1 [] [ logoHtml, text title ] 
-      , Button.button [Button.light, Button.attrs [ class "menu_button", onClick (SetMenuOpen (not model.menuModel.open)) ]] [i [class "fas fa-bars"] []]
+      , Button.button [Button.light, Button.attrs [ class "menu_button", onClick (SetMenuOpen (not model.menuModel.open)) ]] [i [class "fas fa-info"] []]
       ]
     , canvasList
     ]

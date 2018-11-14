@@ -18,23 +18,50 @@ import Config
 import Utils exposing(iiifLink, pluralise)
 
 import ManifestDetails exposing(..)
+import StructuresView
 
 import Iiif exposing(..)
 
 type alias Model =
   { iiif : Iiif
   , manifest : Maybe ManifestUri
+  , canvas : Maybe CanvasUri
   , open : Bool
   , tabState : Tab.State
+  , structuresViewModel : StructuresView.Model
   , errors : List String
   }
 
 type Msg  = SetManifest (Maybe ManifestUri)
+          | SetCanvas (Maybe CanvasUri)
           | SetMenuOpen Bool
           | TabMsg Tab.State
+          | StructuresViewMsg StructuresView.Msg
           | IiifNotification Iiif.Notification
 
-type OutMsg = Nop
+type OutMsg = RangeSelected RangeUri
+
+
+structuresViewSubModel : Model -> StructuresView.Model
+structuresViewSubModel model =
+  let subModel = model.structuresViewModel
+  in { subModel | iiif = model.iiif }
+
+structuresViewOutMapper : StructuresView.OutMsg -> List OutMsg
+structuresViewOutMapper msg =
+  case msg of
+    StructuresView.RangeSelected rangeUri -> [RangeSelected rangeUri]
+
+structuresViewUpdater : StructuresView.Msg -> Model -> (Model, Cmd Msg, List OutMsg)
+structuresViewUpdater msg model =
+  StructuresView.update msg (structuresViewSubModel model)
+    |> structuresViewPipe model
+
+structuresViewPipe : Model -> (StructuresView.Model, Cmd StructuresView.Msg, List StructuresView.OutMsg) -> (Model, Cmd Msg, List OutMsg)
+structuresViewPipe model =
+  U.mapCmd StructuresViewMsg
+  >> U.mapModel (\m -> { model | structuresViewModel = {m | iiif = Iiif.empty}, errors = model.errors ++ m.errors})
+  >> U.mapOut structuresViewOutMapper
 
 
 
@@ -46,17 +73,25 @@ emptyModel : Model
 emptyModel  = 
   { iiif = Iiif.empty
   , manifest = Nothing
+  , canvas = Nothing
   , open = False
   , tabState = Tab.initialState
+  , structuresViewModel = StructuresView.emptyModel
   , errors = []
   }
 
 update : Msg -> Model -> ( Model, Cmd Msg, List OutMsg )
 update msg model =
   case msg of
-    SetManifest maybeManifestUri -> ({model | manifest = maybeManifestUri}, Cmd.none, [])
+    SetManifest maybeManifestUri -> 
+      ({model | manifest = maybeManifestUri, canvas = Nothing}, Cmd.none, [])
+      |> U.chain (structuresViewUpdater (StructuresView.SetManifest maybeManifestUri))
+    SetCanvas maybeCanvasUri -> 
+      ({model | canvas = maybeCanvasUri}, Cmd.none, [])
+      |> U.chain (structuresViewUpdater (StructuresView.SetCanvas maybeCanvasUri))
     SetMenuOpen open -> ({model | open = open}, Cmd.none, [])
     TabMsg state -> ({model | tabState = state}, Cmd.none, [])
+    StructuresViewMsg structuresViewMsg -> structuresViewUpdater structuresViewMsg model
     IiifNotification notification -> (model, Cmd.none, [])
 
 
@@ -67,6 +102,7 @@ view model =
     showClass = if model.open then " show" else ""
     maybeInfo = Maybe.map (\m -> manifestDetailsExtras m [("IIIF", Just (iiifLink m.id))]) maybeManifest 
     info = Maybe.withDefault (text "") maybeInfo
+    structures = Html.map StructuresViewMsg <| StructuresView.view (structuresViewSubModel model)
   in
   div [ class ("manifest_view_menu" ++ showClass) ]
     [ Tab.config TabMsg
@@ -74,12 +110,12 @@ view model =
         [ Tab.item 
             { id = "manifest_view_menu_info" 
             , link = Tab.link [] [ text "Info" ]
-            , pane = Tab.pane [class "container-fluid"] [ Grid.row [] [ Grid.col [] [info] ] ]
+            , pane = Tab.pane [class "container-fluid"] [ info ]
             }
         , Tab.item
             { id = "manifest_view_menu_toc" 
             , link = Tab.link [] [ text "ToC" ]
-            , pane = Tab.pane [] [ text "toc tab"]
+            , pane = Tab.pane [class "container-fluid"] [ structures ] 
             }
         , Tab.item
             { id = "manifest_view_menu_layers" 
