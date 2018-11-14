@@ -1,4 +1,4 @@
-port module ManifestView exposing(Model, Msg(..), OutMsg(..), init, view, update, emptyModel)
+port module ManifestView exposing(Model, Msg(..), OutMsg(..), init, view, update, emptyModel, component)
 
 import Url
 import Json.Decode as Decode
@@ -56,60 +56,38 @@ type OutMsg = LoadManifest ManifestUri
             | CloseViewer
 
 
-canvasListSubModel : Model -> CanvasList.Model
-canvasListSubModel model =
-  let subModel = model.canvasListModel
-  in { subModel | iiif = model.iiif }
+canvasList =
+  U.subComponent 
+    { component = CanvasList.component 
+    , unwrapModel = \model -> let subModel = model.canvasListModel in {subModel | iiif = model.iiif}
+    , wrapModel = \model subModel -> { model | canvasListModel = { subModel | iiif = Iiif.empty }, errors = model.errors ++ subModel.errors}
+    , wrapMsg = CanvasListMsg
+    , outEvaluator = \msgSub model ->
+        case msgSub of
+          CanvasList.CanvasOpened uri -> 
+            case model.manifest of
+              Nothing -> (model, Cmd.none, [])
+              Just manifestUri -> update (SetCanvas (Just uri)) model
+    }
 
-canvasListOutEvaluator : CanvasList.OutMsg -> Model -> (Model, Cmd Msg, List OutMsg)
-canvasListOutEvaluator msg model =
-  case msg of
-    CanvasList.CanvasOpened uri -> 
-      case model.manifest of
-        Nothing -> (model, Cmd.none, [])
-        Just manifestUri -> update (SetCanvas (Just uri)) model
-
-canvasListUpdater : CanvasList.Msg -> Model -> (Model, Cmd Msg, List OutMsg)
-canvasListUpdater msg model =
-  CanvasList.update msg (canvasListSubModel model)
-    |> canvasListPipe model
-
-canvasListPipe : Model -> (CanvasList.Model, Cmd CanvasList.Msg, List CanvasList.OutMsg) -> (Model, Cmd Msg, List OutMsg)
-canvasListPipe model = 
-  U.mapCmd CanvasListMsg
-  >> U.mapModel (\m -> { model | canvasListModel = {m | iiif = Iiif.empty}, errors = model.errors ++ m.errors})
-  >> U.evalOut canvasListOutEvaluator
-
-
-manifestMenuSubModel : Model -> ManifestMenu.Model
-manifestMenuSubModel model =
-  let subModel = model.menuModel
-  in { subModel | iiif = model.iiif }
-
-manifestMenuOutEvaluator : ManifestMenu.OutMsg -> Model -> (Model, Cmd Msg, List OutMsg)
-manifestMenuOutEvaluator msg model =
-  case msg of
-    ManifestMenu.RangeSelected rangeUri ->
-      let
-        maybeManifest = Maybe.map (getManifest model.iiif) model.manifest
-        maybeRange = Maybe.andThen (flip getRange <| rangeUri) maybeManifest
-        maybeCanvasUri = Maybe.andThen (List.head) (Maybe.map .canvases maybeRange)
-      in
-        case maybeCanvasUri of
-          Just canvasUri -> update (SetCanvas (Just canvasUri)) model
-          Nothing -> (model, Cmd.none, [])
-
-manifestMenuUpdater : ManifestMenu.Msg -> Model -> (Model, Cmd Msg, List OutMsg)
-manifestMenuUpdater msg model =
-  ManifestMenu.update msg (manifestMenuSubModel model)
-    |> manifestMenuPipe model
-
-manifestMenuPipe : Model -> (ManifestMenu.Model, Cmd ManifestMenu.Msg, List ManifestMenu.OutMsg) -> (Model, Cmd Msg, List OutMsg)
-manifestMenuPipe model = 
-  U.mapCmd ManifestMenuMsg
-  >> U.mapModel (\m -> { model | menuModel = {m | iiif = Iiif.empty}, errors = model.errors ++ m.errors})
-  >> U.evalOut manifestMenuOutEvaluator
-
+manifestMenu = 
+  U.subComponent 
+    { component = ManifestMenu.component 
+    , unwrapModel = \model -> let subModel = model.menuModel in {subModel | iiif = model.iiif}
+    , wrapModel = \model subModel -> { model | menuModel = { subModel | iiif = Iiif.empty }, errors = model.errors ++ subModel.errors}
+    , wrapMsg = ManifestMenuMsg
+    , outEvaluator = \msgSub model ->
+        case msgSub of
+          ManifestMenu.RangeSelected rangeUri ->
+            let
+              maybeManifest = Maybe.map (getManifest model.iiif) model.manifest
+              maybeRange = Maybe.andThen (flip getRange <| rangeUri) maybeManifest
+              maybeCanvasUri = Maybe.andThen (List.head) (Maybe.map .canvases maybeRange)
+            in
+              case maybeCanvasUri of
+                Just canvasUri -> update (SetCanvas (Just canvasUri)) model
+                Nothing -> (model, Cmd.none, [])
+    }
 
 
 openCanvasInOsd : Model -> ManifestUri -> CanvasUri -> (Model, Cmd Msg, List OutMsg)
@@ -144,14 +122,18 @@ scrollCanvasLine animate model =
       in (model, scrollCmd, [])
 
 
+component : U.Component Model Msg OutMsg
+component = { init = init, emptyModel = emptyModel, update = update, view = view }
+
+
 init : Decode.Value -> ( Model, Cmd Msg, List OutMsg )
 init flags = 
   let 
     baseModel = emptyModel 
   in
-    CanvasList.init flags
-      |> canvasListPipe baseModel
---      |> U.chain (openUrl url)
+    (emptyModel, Cmd.none, [])
+    |> U.chain (canvasList.init flags)
+    |> U.chain (manifestMenu.init flags)
 
 
 emptyModel : Model
@@ -189,27 +171,25 @@ update msg model =
         manifestChanging = model.manifest /= maybeManifestUri
       in
       ({model | manifest = maybeManifestUri, canvas = maybeCanvasUri}, Cmd.none, loadMsg)
-        |> U.chain (canvasListUpdater (CanvasList.SetManifest maybeManifestUri))
-        |> U.chain (canvasListUpdater (CanvasList.SelectCanvas maybeCanvasUri))
-        |> U.chain (manifestMenuUpdater (ManifestMenu.SetManifest maybeManifestUri))
-        |> U.chain (manifestMenuUpdater (ManifestMenu.SetCanvas maybeCanvasUri))
-        |> U.chain (manifestMenuUpdater (ManifestMenu.SetMenuOpen (model.menuModel.open && not manifestChanging)))
+        |> U.chain (canvasList.updater (CanvasList.SetManifest maybeManifestUri))
+        |> U.chain (canvasList.updater (CanvasList.SelectCanvas maybeCanvasUri))
+        |> U.chain (manifestMenu.updater (ManifestMenu.SetManifest maybeManifestUri))
+        |> U.chain (manifestMenu.updater (ManifestMenu.SetCanvas maybeCanvasUri))
+        |> U.chain (manifestMenu.updater (ManifestMenu.SetMenuOpen (model.menuModel.open && not manifestChanging)))
         |> U.maybeChain (\(ma, ca) m -> openCanvasInOsd m ma ca) (Maybe.map2 (\x y -> (x, y)) maybeManifestUri maybeCanvasUri)
         |> U.chain (scrollCanvasLine (not manifestChanging))
-    CanvasListMsg canvasListMsg -> canvasListUpdater canvasListMsg model
-    ManifestMenuMsg manifestMenuMsg -> manifestMenuUpdater manifestMenuMsg model
+    CanvasListMsg canvasListMsg -> canvasList.updater canvasListMsg model
+    ManifestMenuMsg manifestMenuMsg -> manifestMenu.updater manifestMenuMsg model
     IiifNotification notification -> 
       (model, Cmd.none, [])
         |> U.chain (osdNotification notification)
-        |> U.chain (canvasListUpdater (CanvasList.IiifNotification notification))
+        |> U.chain (canvasList.updater (CanvasList.IiifNotification notification))
     CloseClicked -> (model, Cmd.none, [CloseViewer])
     SetMenuOpen open -> 
       let 
         menuModel = model.menuModel
         newMenuModel = { menuModel | open = open }
       in ({model | menuModel = newMenuModel}, Cmd.none, [])
-
-      
 
 
 osdNotification : Iiif.Notification -> Model -> (Model, Cmd Msg, List OutMsg)
@@ -230,8 +210,6 @@ osdNotification notification model =
 view : Model -> Html Msg
 view model = 
   let
-    canvasList = Html.map CanvasListMsg <| CanvasList.view (canvasListSubModel model)
-    manifestMenu = Html.map ManifestMenuMsg <| ManifestMenu.view (manifestMenuSubModel model)
     maybeManifest = Maybe.map (getManifest model.iiif) model.manifest
     logoHtml = case Maybe.andThen .logo maybeManifest of
         Just logo -> img [src logo, class "logo"] []
@@ -243,13 +221,13 @@ view model =
     [ div [ class "manifest_zoomer" ] 
       [ Lazy.lazy osdElement model.osdElemId
       ]
-    , manifestMenu
+    , manifestMenu.view model
     , div [ class "title" ] 
       [ Button.button [Button.light, Button.attrs [ class "close_button", onClick CloseClicked ]] [i [ class "fas fa-arrow-left" ] []]
       , h1 [] [ logoHtml, text title ] 
       , Button.button [Button.light, Button.attrs [ class "menu_button", onClick (SetMenuOpen (not model.menuModel.open)) ]] [i [class "fas fa-info"] []]
       ]
-    , canvasList
+    , canvasList.view model
     ]
 
 osdElement : String -> Html Msg

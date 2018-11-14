@@ -1,5 +1,8 @@
 module Update exposing(..)
 
+import Json.Decode as Decode
+import Html exposing (Html)
+
 catCmd : Cmd msg -> Cmd msg -> Cmd msg
 catCmd a b =
   if a == Cmd.none then
@@ -140,3 +143,55 @@ evalOut2 evaluator (model, cmd, out) =
 
 ignoreOut : ( model, Cmd msg, List outMsg ) -> ( model, Cmd msg )
 ignoreOut (model, cmd, out) = (model, cmd)
+
+
+
+type alias Component model msg outMsg =
+  { init : Decode.Value -> ( model, Cmd msg, List outMsg )
+  , emptyModel : model
+  , update : msg -> model -> ( model, Cmd msg, List outMsg )
+  , view : model -> Html msg
+  }
+
+type alias ComponentAdapter modelParent modelSub msgParent msgSub outMsgParent outMsgSub =
+  { component : Component modelSub msgSub outMsgSub
+  , unwrapModel : modelParent -> modelSub
+  , wrapModel : modelParent -> modelSub -> modelParent
+  , wrapMsg : msgSub -> msgParent
+  , outEvaluator : outMsgSub -> modelParent -> (modelParent, Cmd msgParent, List outMsgParent)
+  }
+
+type alias ComponentMount modelParent modelSub msgParent msgSub outMsgParent outMsgSub =
+  { component : Component modelSub msgSub outMsgSub
+  , unwrap : modelParent -> modelSub
+  , pipe : modelParent -> (modelSub, Cmd msgSub, List outMsgSub) -> (modelParent, Cmd msgParent, List outMsgParent)
+  , updater : msgSub -> modelParent -> (modelParent, Cmd msgParent, List outMsgParent)
+  , init : Decode.Value -> modelParent -> (modelParent, Cmd msgParent, List outMsgParent)
+  , view : modelParent -> Html msgParent
+  }
+
+subComponent :
+  ComponentAdapter modelParent modelSub msgParent msgSub outMsgParent outMsgSub
+  -> ComponentMount modelParent modelSub msgParent msgSub outMsgParent outMsgSub
+subComponent s =
+  let 
+    pipe : modelParent -> (modelSub, Cmd msgSub, List outMsgSub) -> (modelParent, Cmd msgParent, List outMsgParent)
+    pipe model = mapCmd s.wrapMsg >> mapModel (s.wrapModel model) >> evalOut s.outEvaluator
+
+    updater : msgSub -> modelParent -> (modelParent, Cmd msgParent, List outMsgParent)
+    updater msg model = s.component.update msg (s.unwrapModel model) |> pipe model
+
+    init : Decode.Value -> modelParent -> (modelParent, Cmd msgParent, List outMsgParent)
+    init flags m = s.component.init flags |> pipe m
+
+    view : modelParent -> Html msgParent
+    view model = Html.map s.wrapMsg <| s.component.view (s.unwrapModel model)
+  in
+  { component = s.component
+  , unwrap = s.unwrapModel
+  , pipe = pipe
+  , updater = updater
+  , init = init
+  , view = view
+  }
+

@@ -1,4 +1,4 @@
-port module StructuresView exposing(Model, Msg(..), OutMsg(..), init, view, update, emptyModel)
+port module StructuresView exposing(Model, Msg(..), OutMsg(..), init, view, update, emptyModel, component)
 
 import Url
 import Json.Decode as Decode
@@ -34,6 +34,9 @@ type Msg  = SetManifest (Maybe ManifestUri)
 
 type OutMsg = RangeSelected RangeUri
 
+
+component : U.Component Model Msg OutMsg
+component = { init = init, emptyModel = emptyModel, update = update, view = view }
 
 
 init : Decode.Value -> ( Model, Cmd Msg, List OutMsg )

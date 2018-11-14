@@ -1,4 +1,4 @@
-module CanvasList exposing(Model, Msg(..), OutMsg(..), init, view, update, emptyModel, buttonIdFor)
+module CanvasList exposing(Model, Msg(..), OutMsg(..), init, view, update, emptyModel, component, buttonIdFor)
 
 import Url
 import Json.Decode as Decode
@@ -32,6 +32,10 @@ type Msg  = SetManifest (Maybe ManifestUri)
           | IiifNotification Iiif.Notification
 
 type OutMsg = CanvasOpened CanvasUri
+
+
+component : U.Component Model Msg OutMsg
+component = { init = init, emptyModel = emptyModel, update = update, view = view }
 
 
 init : Decode.Value -> ( Model, Cmd Msg, List OutMsg )

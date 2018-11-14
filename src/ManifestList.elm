@@ -1,4 +1,4 @@
-module ManifestList exposing(Model, Msg(..), OutMsg(..), init, view, update, emptyModel)
+module ManifestList exposing(Model, Msg(..), OutMsg(..), init, view, update, emptyModel, component)
 
 import Json.Decode as Decode
 import Html exposing (..)
@@ -43,6 +43,11 @@ type OutMsg = LoadManifest ManifestUri
             | LoadCollection CollectionUri
             | ManifestSelected ManifestUri
             | CanvasSelected ManifestUri CanvasUri
+
+
+component : U.Component Model Msg OutMsg
+component = { init = init, emptyModel = emptyModel, update = update, view = view }
+
 
 init : Decode.Value -> ( Model, Cmd Msg, List OutMsg )
 init flags = (emptyModel, Cmd.none, [])

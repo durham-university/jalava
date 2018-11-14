@@ -1,4 +1,4 @@
-module CollectionTree exposing(Model, Msg(..), OutMsg(..), init, view, update, emptyModel)
+module CollectionTree exposing(Model, Msg(..), OutMsg(..), component, init, view, update, emptyModel)
 
 import Set exposing(Set, insert, remove, member)
 import Url
@@ -29,6 +29,9 @@ type alias Model =
   , selectedCollection : List CollectionUri
   , errors : List String
   }
+
+component : U.Component Model Msg OutMsg
+component = { init = init, emptyModel = emptyModel, update = update, view = view }
 
 init : Decode.Value -> ( Model, Cmd Msg, List OutMsg )
 init flags =
