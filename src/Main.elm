@@ -117,7 +117,7 @@ main =
 init : Decode.Value -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
   let
-    decodedUriMapper = Decode.decodeValue (Decode.field "uriMapper" UriMapper.uriMapperDecoder) flags
+    decodedUriMapper = Decode.decodeValue (Decode.field "uriMapper" (UriMapper.uriMapperDecoder UriMapper.base)) flags
     setUriMapper = case decodedUriMapper of
       Result.Ok uriMapper -> U.mapModel (\m -> {m | uriMapper = uriMapper })
       Result.Err err -> U.mapModel (\m -> {m | errors = m.errors ++ [Decode.errorToString err] })
