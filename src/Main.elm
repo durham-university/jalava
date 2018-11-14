@@ -1,4 +1,4 @@
-port module Main exposing(..)
+module Main exposing(..)
 
 import Browser
 import Browser.Navigation as Nav
@@ -303,7 +303,7 @@ update msg model =
     IiifNotification notification ->
       let 
         _ = case notification of 
-          Iiif.ManifestLoaded uri -> Debug.log "manifest loaded" uri
+          Iiif.ManifestLoaded uri -> uri
           Iiif.CollectionLoaded uri -> uri
       in
       (model, Cmd.none, [])

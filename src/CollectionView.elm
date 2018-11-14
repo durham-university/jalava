@@ -15,7 +15,7 @@ import ManifestList
 
 import Update as U
 import Config
-import Utils exposing(iiifLink, pluralise)
+import Utils exposing(iiifLink, pluralise, spinner)
 
 import Iiif exposing(..)
 
@@ -112,7 +112,7 @@ view model =
             Just logo -> [div [class "logo"] [ img [src logo] [] ] ]
             Nothing -> []
           spinnerHtml = case isStub collection of
-            True -> [i [ class "spinner fas fa-spinner" ] []]
+            True -> [spinner]
             False -> []
         in
           [ Grid.row [Row.attrs [class "title_row"]] [ Grid.col [] (logoHtml ++ [h1 [] [ text <| collectionToString collection ]] ++ spinnerHtml ) ]

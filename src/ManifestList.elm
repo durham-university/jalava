@@ -111,7 +111,7 @@ manifestLine iiif manifestUri =
         Just logo -> [ img [src logo, class "logo"] [] ]
         Nothing -> []
     spinnerHtml = case isStub manifest of
-      True -> [i [ class "spinner fas fa-spinner" ] []]
+      True -> [img [ src "spinner.gif", class "spinner"] []]
       False -> []
     re = Maybe.withDefault Regex.never (Regex.fromString "\\W+")
     details_id = Regex.replace re (\_ -> "_") manifest.id

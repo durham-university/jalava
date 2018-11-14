@@ -87,8 +87,7 @@ collectionTree model path collection =
     , case isCollectionOpened collection model of
         True ->
           case isStub collection of
-            True -> 
-              i [ class "spinner fas fa-spinner" ] []
+            True -> spinner
             False -> 
               let
                 subCollections = getCollections model.iiif collection.collections
