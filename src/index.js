@@ -11,7 +11,25 @@ var mountNode = document.getElementById('elm-app');
 var app = Elm.Elm.Main.init({
   node: mountNode,
   flags: {
-    rootUrl: "https://iiif.durham.ac.uk/manifests/trifle/collection/32150/t3cvx021f09g"
+    rootUrl: "https://iiif.durham.ac.uk/manifests/trifle/collection/32150/t3cvx021f09g",
+    uriMapper: {
+      inflaters: [
+        { regex: "^(t\\d)(m[a-z0-9])([a-z0-9]{2})([a-z0-9]+)$", 
+          pattern: "https://iiif.durham.ac.uk/manifests/trifle/32150/$1/$2/$3/$1$2$3$4/manifest"},
+        { regex: "^(t\\d)(m[a-z0-9])([a-z0-9]{2})([a-z0-9]+)_(t\\dt[a-z0-9]+)$", 
+          pattern: "https://iiif.durham.ac.uk/manifests/trifle/32150/$1/$2/$3/$1$2$3$4/canvas/$5"},
+        { regex: "^(t\\dc[a-z0-9]+)$", 
+          pattern: "https://iiif.durham.ac.uk/manifests/trifle/collection/32150/$1"}
+      ],
+      deflaters: [
+        { regex: "^https://iiif.durham.ac.uk/manifests/trifle/32150/[a-z0-9]{2}/[a-z0-9]{2}/[a-z0-9]{2}/([a-z0-9]+)/manifest$",
+          pattern: "$1"},
+        { regex: "^https://iiif.durham.ac.uk/manifests/trifle/32150/[a-z0-9]{2}/[a-z0-9]{2}/[a-z0-9]{2}/([a-z0-9]+)/canvas/([a-z0-9]+)$",
+          pattern: "$1_$2"},
+        { regex: "^https://iiif.durham.ac.uk/manifests/trifle/collection/32150/([a-z0-9]+)$",
+          pattern: "$1"}
+      ]
+    }
   }
 });
 

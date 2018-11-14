@@ -14,7 +14,6 @@ import Bootstrap.Button as Button
 import ManifestList
 
 import Update as U
-import Config
 import Utils exposing(iiifLink, pluralise, spinner)
 
 import Iiif exposing(..)

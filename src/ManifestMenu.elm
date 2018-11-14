@@ -14,7 +14,6 @@ import Bootstrap.Button as Button
 import Bootstrap.Tab as Tab
 
 import Update as U
-import Config
 import Utils exposing(iiifLink, pluralise)
 
 import ManifestDetails exposing(..)

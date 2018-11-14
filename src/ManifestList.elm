@@ -19,7 +19,6 @@ import Iiif exposing(..)
 import ManifestDetails
 import Utils exposing(iiifLink, pluralise, wrapKey)
 import Update as U
-import Config
 
 
 type alias Model = 
@@ -123,7 +122,6 @@ manifestLine iiif manifestUri =
   in
   Grid.row [] [ Grid.col [] [
     Card.config [ Card.attrs [class "manifest_preview_card"] ]
---      |> Card.headerH3 [] (logoHtml ++ [ Html.a [href (Config.manifestViewerUrl manifest)] [text <| Iiif.manifestToString manifest] ] ++ spinnerHtml)
       |> Card.headerH3 [] (logoHtml ++ [ Button.button [Button.roleLink, Button.attrs [onClick (ManifestClicked manifestUri)]] [text <| Iiif.manifestToString manifest] ] ++ spinnerHtml)
       |> Card.listGroup 
           [ ListGroup.li [] [ (canvasesLine manifest canvases) ]
@@ -143,7 +141,6 @@ canvasesLine : Manifest -> List Canvas -> Html Msg
 canvasesLine manifest canvases =
 -- Images need to be keyed. It appears that lazy loading confuses Elm otherwise.
   Keyed.node "div" [ class "canvas_line" ]
---    (List.map (wrapKey <| \c -> a [ class "canvas_preview", href (Config.canvasViewerUrl manifest c) ] [ canvasImgHtml c ]) canvases )
     (List.map (wrapKey <| \c -> Button.button [ Button.roleLink, Button.attrs [class "canvas_preview", onClick (CanvasClicked manifest.id c.id)]] [ canvasImgHtml c ]) canvases )
 
 canvasImgHtml : Canvas -> Html msg

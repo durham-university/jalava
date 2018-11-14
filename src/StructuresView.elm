@@ -13,7 +13,6 @@ import Bootstrap.Grid.Col as Col
 import Bootstrap.Button as Button
 
 import Update as U
-import Config
 import Utils exposing(iiifLink, pluralise)
 
 import ManifestDetails exposing(..)

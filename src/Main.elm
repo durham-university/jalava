@@ -19,7 +19,7 @@ import Bootstrap.Alert as Alert
 import Utils exposing(..)
 
 import Iiif exposing (..)
-import Config
+import UriMapper exposing (UriMapper)
 import Update as U
 
 import CollectionTree
@@ -34,6 +34,7 @@ type alias Model =
   , collectionViewModel : CollectionView.Model
   , manifestViewModel : ManifestView.Model
   , screen : Screen
+  , uriMapper : UriMapper
   , errors : List String
   }
 
@@ -115,7 +116,14 @@ main =
 
 init : Decode.Value -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
+  let
+    decodedUriMapper = Decode.decodeValue (Decode.field "uriMapper" UriMapper.uriMapperDecoder) flags
+    setUriMapper = case decodedUriMapper of
+      Result.Ok uriMapper -> U.mapModel (\m -> {m | uriMapper = uriMapper })
+      Result.Err err -> U.mapModel (\m -> {m | errors = m.errors ++ [Decode.errorToString err] })
+  in
   (emptyModel url key, Cmd.none, [])
+    |> setUriMapper
     |> U.chain (collectionTree.init flags)
     |> U.chain (collectionView.init flags)
     |> U.chain (manifestView.init flags)
@@ -137,14 +145,14 @@ parseUrl url model =
         Nothing -> []
         Just fragment ->
           String.split "/" fragment
-          |> List.map Config.completeUri
+          |> List.map model.uriMapper.inflate
           |> List.reverse
     (selectedManifest, selectedCanvas) = 
       case Maybe.map (String.split "/") viewFragment of
         Nothing -> (Nothing, Nothing)
         Just [] -> (Nothing, Nothing)
-        Just [x] -> (Just (Config.completeUri x), Nothing)
-        Just (x :: y :: xs) -> (Just (Config.completeUri x), Just (Config.completeCanvasUri (Config.completeUri x) y))
+        Just [x] -> (Just (model.uriMapper.inflate x), Nothing)
+        Just (x :: y :: xs) -> (Just (model.uriMapper.inflate x), Just (model.uriMapper.inflate y))
     screen = case selectedManifest of
       Nothing -> Browser
       Just x -> Viewer
@@ -162,12 +170,12 @@ updateUrl model =
     treePath = 
       model.collectionTreeModel.selectedCollection
       |> List.reverse
-      |> List.map Config.shortenUri
+      |> List.map model.uriMapper.deflate
       |> String.join "/"
     viewManifest = 
       [model.manifestViewModel.manifest, model.manifestViewModel.canvas]
       |> List.filterMap identity
-      |> List.map Config.shortenUri 
+      |> List.map model.uriMapper.deflate
       |> String.join "/"
     newFragment = 
       case model.screen of
@@ -187,6 +195,7 @@ emptyModel url key =
   , collectionViewModel = CollectionView.emptyModel
   , manifestViewModel = ManifestView.emptyModel
   , screen = Browser
+  , uriMapper = UriMapper.empty
   , errors = []
   }
 

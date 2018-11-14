@@ -6,6 +6,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import Html.Keyed as Keyed
+import Regex
 
 import Bootstrap.Grid as Grid
 import Bootstrap.Grid.Row as Row
@@ -13,10 +14,10 @@ import Bootstrap.Grid.Col as Col
 import Bootstrap.Button as Button
 
 import Update as U
-import Config
 import Utils exposing(iiifLink, pluralise, wrapKey, spinner)
 
 import Iiif exposing(..)
+import UriMapper exposing (UriMapper)
 
 type alias Model =
   { iiif : Iiif
@@ -81,7 +82,12 @@ view model =
 
 
 buttonIdFor : CanvasUri -> String
-buttonIdFor canvasUri = "canvas_button_" ++ (Config.shortenUri canvasUri)
+buttonIdFor canvasUri = 
+  let 
+    re = Maybe.withDefault Regex.never (Regex.fromString "[^a-z0-9]+")
+    sanitised = Regex.replace re (\_ -> "_") canvasUri
+  in
+  "canvas_button_" ++ sanitised
 
 canvasButton : Model -> Canvas -> Html Msg
 canvasButton model canvas = 
