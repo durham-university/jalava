@@ -48,8 +48,8 @@ manifestDetailsExtras manifest extraValues =
     ++ propertyHtmlText "Attribution" manifest.attribution
     ++ propertyHtmlText "Description" manifest.description
     ++ Dict.foldl metadataFolder [] manifest.metadata
-    ++ manifestLinkHtml "See also" manifest.seeAlso
-    ++ manifestLinkHtml "Related" manifest.related
+    ++ List.concatMap (\x -> manifestLinkHtml "See also" (Just x)) manifest.seeAlso
+    ++ List.concatMap (\x -> manifestLinkHtml "Related" (Just x)) manifest.related
     ++ propertyHtmlLink "License" (Maybe.withDefault "License" manifest.license) manifest.license
     ++ extras
   )

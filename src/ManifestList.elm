@@ -145,4 +145,4 @@ canvasesLine manifest canvases =
 
 canvasImgHtml : Canvas -> Html msg
 canvasImgHtml canvas = 
-  img [ class "lazyload", src "spinner_40x60.gif", attribute "data-src" <| Iiif.canvasUrl (Iiif.FitH 60) canvas] []
+  img [ height 60, class "lazyload", src "spinner_40x60.gif", attribute "data-src" <| Iiif.canvasThumbnailUrl (Iiif.FitH 60) canvas] []

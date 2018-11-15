@@ -5,6 +5,7 @@ import Json.Decode as Decode
 import Json.Decode.Pipeline exposing (required, optional, hardcoded, custom)
 import Json.Encode as Encode
 import Http
+import List.Extra as ListE
 
 type alias Uri = String
 
@@ -38,8 +39,8 @@ type alias Manifest =
   , license : Maybe String
   , attribution : Maybe String
   , metadata : Dict String (List String)
-  , related : Maybe ManifestLink
-  , seeAlso : Maybe ManifestLink
+  , related : List ManifestLink
+  , seeAlso : List ManifestLink
   , sequences : List Sequence
   , structures : List Range
   , status : Status
@@ -62,7 +63,7 @@ type alias Collection =
   }
 
 type alias Sequence =
-  { id : SequenceUri
+  { id : Maybe SequenceUri
   , label : Maybe String
   , viewingDirection : Maybe String
   , viewingHint : Maybe String
@@ -72,10 +73,10 @@ type alias Sequence =
 sequenceDecoder : Decode.Decoder Sequence
 sequenceDecoder = 
   Decode.succeed Sequence
-    |> required "@id" Decode.string
-    |> optional "label" (Decode.nullable Decode.string) Nothing
-    |> optional "viewingDirection" (Decode.nullable Decode.string) Nothing
-    |> optional "viewingHint" (Decode.nullable Decode.string) Nothing
+    |> optional "@id" (Decode.nullable Decode.string) Nothing
+    |> optional "label" jsonLdValueStringDecoder Nothing
+    |> optional "viewingDirection" jsonLdValueStringDecoder Nothing
+    |> optional "viewingHint" jsonLdValueStringDecoder Nothing
     |> optional "canvases" (Decode.list canvasDecoder) []
 
 type alias Canvas =
@@ -84,57 +85,78 @@ type alias Canvas =
   , width : Int
   , height : Int
   , images : List Image
+  , thumbnail : Maybe Resource
   }
 
 canvasDecoder : Decode.Decoder Canvas
 canvasDecoder = 
   Decode.succeed Canvas
     |> required "@id" Decode.string
-    |> optional "label" (Decode.nullable Decode.string) Nothing
+    |> optional "label" jsonLdValueStringDecoder Nothing
     |> required "width" Decode.int
     |> required "height" Decode.int
     |> optional "images" (Decode.list imageDecoder) []
+    |> optional "thumbnail" (Decode.nullable resourceDecoder) Nothing
+
 
 type alias Image =
-  { id : ImageUri
+  { id : Maybe ImageUri
   , resource : Resource
   }
 
 imageDecoder : Decode.Decoder Image
 imageDecoder = 
   Decode.succeed Image
-    |> required "@id" Decode.string
+    |> optional "@id" (Decode.nullable Decode.string) Nothing
     |> required "resource" resourceDecoder
 
 type alias Resource =
   { id : ResourceUri
   , format : Maybe String
-  , width : Int
-  , height : Int
+  , width : Maybe Int
+  , height : Maybe Int
   , service : Maybe Service
   }
 
 resourceDecoder : Decode.Decoder Resource
 resourceDecoder = 
-  Decode.succeed Resource
-    |> required "@id" Decode.string
-    |> optional "format" (Decode.nullable Decode.string) Nothing
-    |> required "width" Decode.int
-    |> required "height" Decode.int
-    |> optional "service" (Decode.nullable serviceDecoder) Nothing
+  Decode.oneOf 
+  [ Decode.succeed Resource
+      |> required "@id" Decode.string
+      |> optional "format" jsonLdValueStringDecoder Nothing
+      |> optional "width" (Decode.nullable Decode.int) Nothing
+      |> optional "height" (Decode.nullable Decode.int) Nothing
+      |> optional "service" (Decode.nullable serviceDecoder) Nothing
+  , Decode.string |> Decode.map (\id -> Resource id Nothing Nothing Nothing Nothing)
+  ]
 
 
 type alias Service =
   { id : ServiceUri
-  , profile : String
+  , profile : List String
+  , width : Maybe Int
+  , height : Maybe Int
+  , sizes : List (Int, Int)
   }
 
 serviceDecoder : Decode.Decoder Service
 serviceDecoder = 
   Decode.succeed Service
     |> required "@id" Decode.string
-    |> required "profile" Decode.string
+    |> required "profile" (Decode.oneOf [
+          Decode.string |> Decode.map List.singleton,
+          Decode.list Decode.string
+        ])
+    |> optional "width" (Decode.nullable Decode.int) Nothing
+    |> optional "height" (Decode.nullable Decode.int) Nothing
+    |> optional "sizes" (Decode.list serviceSizeDecoder) []
 
+
+serviceSizeDecoder : Decode.Decoder (Int, Int)
+serviceSizeDecoder =
+  Decode.map2 (\x y -> (x, y))
+    (Decode.field "width" Decode.int)
+    (Decode.field "height" Decode.int)
 
 type alias Range =
   { id : RangeUri 
@@ -148,8 +170,8 @@ rangeDecoder : Decode.Decoder Range
 rangeDecoder =
   Decode.succeed Range
     |> required "@id" Decode.string
-    |> optional "viewingHint" (Decode.nullable Decode.string) Nothing
-    |> optional "label" (Decode.nullable Decode.string) Nothing
+    |> optional "viewingHint" jsonLdValueStringDecoder Nothing
+    |> optional "label" jsonLdValueStringDecoder Nothing
     |> optional "canvases" (Decode.list Decode.string) []
     |> optional "ranges" (Decode.list Decode.string) []
 
@@ -167,6 +189,44 @@ type Notification
   = ManifestLoaded ManifestUri
   | CollectionLoaded CollectionUri
 
+type alias JsonLdValue a = List (SingleValue a)
+
+jsonLdValueDecoder : Decode.Decoder a -> Decode.Decoder (JsonLdValue a)
+jsonLdValueDecoder valueDecoder =
+  Decode.oneOf
+    [ singleValueDecoder valueDecoder |> Decode.map List.singleton
+    , Decode.list (singleValueDecoder valueDecoder)
+    ]
+
+jsonLdValueStringDecoder : Decode.Decoder (Maybe String)
+jsonLdValueStringDecoder =
+  (jsonLdValueDecoder Decode.string)
+    |> Decode.map List.head
+    |> Decode.map (Maybe.map .value)
+
+jsonLdValueStringListDecoder : Decode.Decoder (List String)
+jsonLdValueStringListDecoder =
+  (jsonLdValueDecoder Decode.string)
+    |> Decode.map (List.map .value)
+
+type alias SingleValue a =
+  { value : a
+  , language : Maybe String
+  , valueType : Maybe String
+  }
+
+singleValueDecoder : Decode.Decoder a ->  Decode.Decoder (SingleValue a)
+singleValueDecoder valueDecoder =
+  Decode.oneOf
+    [ valueDecoder |> Decode.map (\s -> SingleValue s Nothing Nothing)
+    , Decode.succeed SingleValue
+        |> required "@value" valueDecoder
+        |> optional "@language" (Decode.nullable Decode.string) Nothing
+        |> optional "@type" (Decode.nullable Decode.string) Nothing
+    ]
+  
+
+
 --------------
 -- DECODING --
 --------------
@@ -180,8 +240,8 @@ stubManifest id label logo =
   , license = Nothing
   , attribution = Nothing
   , metadata = Dict.empty
-  , related = Nothing
-  , seeAlso = Nothing
+  , related = []
+  , seeAlso = []
   , sequences = []
   , structures = []
   , status = Stub
@@ -202,15 +262,18 @@ manifestDecoder =
   let
     manifest = Decode.succeed Manifest
       |> required "@id" Decode.string
-      |> optional "label" (Decode.nullable Decode.string) Nothing
-      |> optional "description" (Decode.nullable Decode.string) Nothing
-      |> optional "logo" (Decode.nullable Decode.string) Nothing
-      |> optional "license" (Decode.nullable Decode.string) Nothing
-      |> optional "attribution" (Decode.nullable Decode.string) Nothing
+      |> optional "label" jsonLdValueStringDecoder Nothing
+      |> optional "description" jsonLdValueStringDecoder Nothing
+      |> optional "logo" jsonLdValueStringDecoder Nothing
+      |> optional "license" jsonLdValueStringDecoder Nothing
+      |> optional "attribution" jsonLdValueStringDecoder Nothing
       |> optional "metadata" (metadataDecoder) (Dict.empty)
-      |> optional "related" (Decode.nullable manifestLinkDecoder) Nothing
-      |> optional "seeAlso" (Decode.nullable manifestLinkDecoder) Nothing
-      |> optional "sequences" (Decode.list sequenceDecoder) []
+      |> optional "related" manifestLinkDecoder []
+      |> optional "seeAlso" manifestLinkDecoder []
+      |> optional "sequences" (Decode.oneOf
+                                [ Decode.list sequenceDecoder
+                                , Decode.map List.singleton sequenceDecoder
+                                ]) []
       |> optional "structures" (Decode.list rangeDecoder) []
       |> hardcoded Full
     manifestUri = Decode.map .id manifest
@@ -224,33 +287,38 @@ metadataDecoder : Decode.Decoder (Dict String (List String))
 metadataDecoder =
   let 
     t2 = \a b -> (a, b)
-    valueDecoder = Decode.oneOf
-      [ Decode.list Decode.string
-      , Decode.map (List.singleton) Decode.string
-      ]
   in
   Decode.map Dict.fromList
     <| Decode.list (
       Decode.succeed t2
-        |> required "label" Decode.string
-        |> required "value" valueDecoder
+        |> required "label" (Decode.map (Maybe.withDefault "") jsonLdValueStringDecoder)
+        |> required "value" jsonLdValueStringListDecoder
     )
 
-manifestLinkDecoder : Decode.Decoder (ManifestLink)
+manifestLinkDecoder : Decode.Decoder (List ManifestLink)
 manifestLinkDecoder =
-  Decode.succeed ManifestLink
-    |> required "@id" Decode.string
-    |> optional "label" (Decode.nullable Decode.string) Nothing
-    |> optional "format" (Decode.nullable Decode.string) Nothing
-    |> optional "profile" (Decode.nullable Decode.string) Nothing
+  let 
+    fullDecoder = Decode.succeed ManifestLink
+      |> required "@id" Decode.string
+      |> optional "label" jsonLdValueStringDecoder Nothing
+      |> optional "format" jsonLdValueStringDecoder Nothing
+      |> optional "profile" jsonLdValueStringDecoder Nothing
+    simpleDecoder = Decode.string |> Decode.map (\s -> { id = s, label = Nothing, format = Nothing, profile = Nothing})
+  in
+  Decode.oneOf 
+    [ fullDecoder |> Decode.map List.singleton
+    , simpleDecoder |> Decode.map List.singleton
+    , Decode.list fullDecoder
+    , Decode.list simpleDecoder
+    ]
 
 
 manifestStubDecoder : Decode.Decoder Manifest
 manifestStubDecoder = 
   Decode.succeed stubManifest
     |> required "@id" Decode.string
-    |> optional "label" (Decode.nullable Decode.string) Nothing
-    |> optional "logo" (Decode.nullable Decode.string) Nothing
+    |> optional "label" jsonLdValueStringDecoder Nothing
+    |> optional "logo" jsonLdValueStringDecoder Nothing
 
 
 
@@ -267,8 +335,8 @@ collectionDecoder =
   let 
     collection = Decode.succeed Collection
       |> required "@id" Decode.string
-      |> optional "label" (Decode.nullable Decode.string) Nothing
-      |> optional "logo" (Decode.nullable Decode.string) Nothing
+      |> optional "label" jsonLdValueStringDecoder Nothing
+      |> optional "logo" jsonLdValueStringDecoder Nothing
       |> optional "collections" (Decode.list (Decode.field "@id" Decode.string)) []
       |> optional "manifests" (Decode.list (Decode.field "@id" Decode.string)) []
       |> hardcoded Full
@@ -286,8 +354,8 @@ collectionStubDecoder : Decode.Decoder Collection
 collectionStubDecoder =
   Decode.succeed stubCollection
     |> required "@id" Decode.string
-    |> optional "label" (Decode.nullable Decode.string) Nothing
-    |> optional "logo" (Decode.nullable Decode.string) Nothing
+    |> optional "label" jsonLdValueStringDecoder Nothing
+    |> optional "logo" jsonLdValueStringDecoder Nothing
 
 ----------
 -- IIIF --
@@ -331,6 +399,15 @@ getObject key default dict =
       Nothing -> default key (Just "Error: Not found") Nothing
 
 
+aliasManifest : Manifest -> ManifestUri -> Iiif -> Iiif
+aliasManifest manifest aliasUri iiif =
+  addManifest {manifest | id = aliasUri} iiif
+
+aliasCollection : Collection -> CollectionUri -> Iiif -> Iiif
+aliasCollection collection aliasUri iiif =
+  addCollection {collection | id = aliasUri} iiif
+
+
 getManifest : Iiif -> ManifestUri -> Manifest
 getManifest iiif manifestUri = getObject manifestUri stubManifest iiif.manifests
 
@@ -361,7 +438,12 @@ getRanges manifest rangeUris =
 
 getTopRanges : Manifest -> List Range
 getTopRanges manifest =
-  List.filter (\r -> r.viewingHint == Just "top") manifest.structures
+  if List.length manifest.structures == 0 then []
+  else
+    let withViewingHint = List.filter (\r -> r.viewingHint == Just "top") manifest.structures
+    in
+      if List.length withViewingHint > 0 then withViewingHint
+      else manifest.structures
 
 getCanvas : Manifest -> CanvasUri -> Maybe Canvas
 getCanvas manifest canvasUri = 
@@ -411,17 +493,32 @@ collectionToString = toString "Unnamed collection"
 -- Loading --
 -------------
 
+httpErrorToString : Http.Error -> String
+httpErrorToString e =
+  case e of
+    Http.BadUrl url -> "Bad url " ++ url
+    Http.Timeout -> "Timeout"
+    Http.NetworkError -> "Network error"
+    Http.BadPayload msg _ -> "Error parsing response" -- msg tends to be massive so don't include it
+    Http.BadStatus _ -> "Bad response code"
+
 update : Msg -> { a | iiif : Iiif, errors : List String} -> ({ a | iiif : Iiif, errors : List String}, Maybe Notification)
 update msg model =
   case msg of
     ManifestLoadedInt manifestUri res -> 
       case res of
-        Ok (uri, iiif) -> ({ model | iiif = manifestLoaded iiif model.iiif }, Just (ManifestLoaded uri))
-        Err e -> ({ model | errors = model.errors ++ ["Error loading manifest " ++ manifestUri] }, Nothing)
+        Ok (uri, iiif) -> 
+         { model | iiif = manifestLoaded iiif model.iiif }
+         |> (\m -> if uri == manifestUri then m else {m | iiif = aliasManifest (getManifest m.iiif uri) manifestUri m.iiif} )
+         |> (\m -> (m, Just (ManifestLoaded manifestUri)))
+        Err e -> ({ model | errors = model.errors ++ ["Error loading manifest " ++ manifestUri ++ ". " ++ (httpErrorToString e)] }, Nothing)
     CollectionLoadedInt collectionUri res ->
       case res of
-        Ok (uri, iiif) -> ({ model | iiif = collectionLoaded iiif model.iiif }, Just (CollectionLoaded uri))
-        Err e -> ({ model | errors = model.errors ++ ["Error loading collection " ++ collectionUri] }, Nothing)
+        Ok (uri, iiif) -> 
+          { model | iiif = collectionLoaded iiif model.iiif }
+          |> (\m -> if uri == collectionUri then m else {m | iiif = aliasCollection (getCollection m.iiif uri) collectionUri m.iiif} )
+          |> (\m -> (m, Just (CollectionLoaded collectionUri)))
+        Err e -> ({ model | errors = model.errors ++ ["Error loading collection " ++ collectionUri ++ ". " ++ (httpErrorToString e)] }, Nothing)
 
 
 loadManifest : ManifestUri -> Iiif -> (Iiif, Cmd Msg)
@@ -492,30 +589,54 @@ type Quality
   = Default
   | Gray
 
-canvasUrl : Size -> Canvas -> String
-canvasUrl size canvas =
-  case canvas.images of
-    x :: xs -> imageUrl size x
-    [] -> ""
+canvasThumbnailUrl : Size -> Canvas -> String
+canvasThumbnailUrl size canvas =
+  case canvas.thumbnail of
+    Just thumbnail ->resourceUrl FullRegion size NoRotation Default thumbnail
+    Nothing -> case canvas.images of
+                  x :: xs -> imageUrl size x
+                  [] -> ""
 
 imageUrl : Size -> Image -> String
 imageUrl size image = imageUrlFull FullRegion size NoRotation Default image
 
 imageUrlFull : Region -> Size -> Rotation -> Quality -> Image -> String
 imageUrlFull region size rotation quality image =
-  case image.resource.service of
-    Nothing -> image.resource.id
-    Just service ->
-      imageServiceUrl region size rotation quality service
+  resourceUrl region size rotation quality image.resource
 
-imageServiceUrl : Region -> Size -> Rotation -> Quality -> Service -> String
-imageServiceUrl region size rotation quality service =
+resourceUrl : Region -> Size -> Rotation -> Quality -> Resource -> String
+resourceUrl region size rotation quality resource =
+  case resource.service of
+    Nothing -> resource.id
+    Just service ->
+      imageServiceUrl region size rotation quality "jpg" service
+
+matchSizeToAvailable : Service -> Size -> Size
+matchSizeToAvailable service size =
+  if List.length service.sizes == 0 then size
+  else
+    let 
+      sorted = List.sortBy Tuple.second service.sizes
+      -- default shouldn't happen, already checked that list isn't empty
+      max = (ListE.last sorted) |> Maybe.withDefault (0,0)
+      matched = case size of
+        FullSize -> max
+        Max -> max
+        Exactly w h -> ListE.find (\s -> Tuple.first s >= w && Tuple.second s >= h) sorted |> Maybe.withDefault max
+        FitW w -> ListE.find (\s -> Tuple.first s >= w) sorted |> Maybe.withDefault max
+        FitH h -> ListE.find (\s -> Tuple.second s >= h) sorted |> Maybe.withDefault max
+        FitBox w h -> ListE.find (\s -> Tuple.first s >= w && Tuple.second s >= h) sorted |> Maybe.withDefault max
+    in Exactly (Tuple.first matched) (Tuple.second matched)
+
+
+imageServiceUrl : Region -> Size -> Rotation -> Quality -> String -> Service -> String
+imageServiceUrl region size rotation quality format service =
   let
     regionString = case region of
       FullRegion -> "full"
       Square -> "square"
       Box x y w h -> String.join "," (List.map String.fromInt [x,y,w,h])
-    sizeString = case size of
+    sizeString = case (matchSizeToAvailable service size) of
       FullSize -> "full"
       Max -> "max"
       Exactly w h -> String.join "," (List.map String.fromInt [w,h])
@@ -528,4 +649,4 @@ imageServiceUrl region size rotation quality service =
       Default -> "default"
       Gray -> "gray"
   in
-    String.join "/" [service.id, regionString, sizeString, rotationString, qualityString]
+    (String.join "/" [service.id, regionString, sizeString, rotationString, qualityString]) ++ "." ++ format
