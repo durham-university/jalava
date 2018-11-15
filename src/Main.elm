@@ -1,4 +1,4 @@
-module Main exposing(..)
+port module Main exposing(..)
 
 import Browser
 import Browser.Navigation as Nav
@@ -26,6 +26,8 @@ import CollectionTree
 import CollectionView
 import ManifestView
 
+port lazyLoadManifest : (String -> msg) -> Sub msg
+
 type alias Model =
   { key : Nav.Key
   , url : Url.Url
@@ -42,6 +44,7 @@ type Screen = Browser | Viewer
 
 type Msg
   = LinkClicked Browser.UrlRequest
+  | LazyLoadManifest ManifestUri
   | UrlChanged Url.Url
   | CollectionTreeMsg CollectionTree.Msg
   | CollectionViewMsg CollectionView.Msg
@@ -241,6 +244,9 @@ outMsgEvaluator msg model =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
   case msg of
+    LazyLoadManifest manifestUri ->
+      (model, Cmd.none, [LoadManifest manifestUri])
+        |> U.evalOut2 outMsgEvaluator
     LinkClicked urlRequest ->
       case urlRequest of
         Browser.Internal url ->
@@ -285,8 +291,7 @@ update msg model =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions _ =
-  Sub.none
+subscriptions _ = lazyLoadManifest LazyLoadManifest
 
 
 alertDialog : Int -> String -> Html Msg

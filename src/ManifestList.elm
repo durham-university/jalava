@@ -90,14 +90,17 @@ allManifestUris model =
     model.manifests ++ collectionManifests
 
 updateLoadManifests : Model -> (Model, Cmd Msg, List OutMsg)
-updateLoadManifests model =
+updateLoadManifests model = (model, Cmd.none, [])
+-- Disabled in favour of lazy loading of manifests, keep code in case we want to
+-- make lazy loading an option.
+{-
   let 
     stubManifests = List.filter isStub (getManifests model.iiif (allManifestUris model))
     stubUris = List.map .id stubManifests
   in
     (model, Cmd.none, [])
       |> U.foldOut (\uri m -> [LoadManifest uri]) stubUris
-
+-}
 
 view : Model -> Html Msg
 view model = 
@@ -119,8 +122,11 @@ manifestLine iiif manifestUri =
       False -> []
     re = Maybe.withDefault Regex.never (Regex.fromString "\\W+")
     details_id = Regex.replace re (\_ -> "_") manifest.id
+    lazyLoadAttrs = 
+      if isStub manifest then [class "lazyload manifest_lazyload", attribute "data-manifest-uri" manifestUri]
+      else []
   in
-  Grid.row [] [ Grid.col [] [
+  Grid.row [ Row.attrs lazyLoadAttrs ] [ Grid.col [] [
     Card.config [ Card.attrs [class "manifest_preview_card"] ]
       |> Card.headerH3 [] (logoHtml ++ [ Button.button [Button.roleLink, Button.attrs [onClick (ManifestClicked manifestUri)]] [text <| Iiif.manifestToString manifest] ] ++ spinnerHtml)
       |> Card.listGroup 

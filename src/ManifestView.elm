@@ -216,6 +216,9 @@ view model =
         Nothing -> text ""
     title = Maybe.withDefault "" (Maybe.map manifestToString maybeManifest)
     menuOpenClass = if model.menuModel.open then " show" else ""
+    spinnerHtml = case Maybe.map isStub maybeManifest of
+      Just True -> img [ src "spinner.gif", class "spinner"] []
+      _ -> text ""
   in
   div [ class "manifest_view" ] 
     [ div [ class "manifest_zoomer" ] 
@@ -224,7 +227,7 @@ view model =
     , manifestMenu.view model
     , div [ class "title" ] 
       [ Button.button [Button.light, Button.attrs [ class "close_button", onClick CloseClicked ]] [i [ class "fas fa-arrow-left" ] []]
-      , h1 [] [ logoHtml, text title ] 
+      , h1 [] [ logoHtml, text title, spinnerHtml ] 
       , Button.button [Button.light, Button.attrs [ class "menu_button", onClick (SetMenuOpen (not model.menuModel.open)) ]] [i [class "fas fa-info"] []]
       ]
     , canvasList.view model

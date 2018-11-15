@@ -1,9 +1,13 @@
 'use strict';
 
 import 'lazysizes';
+
 var OpenSeadragon = require('openseadragon');
 require('./index.html');
 require('./main.scss');
+
+window.lazySizesConfig = window.lazySizesConfig || {};
+window.lazySizesConfig.loadHidden = false;
 
 var Elm = require('./Main.elm');
 var mountNode = document.getElementById('elm-app');
@@ -11,7 +15,8 @@ var mountNode = document.getElementById('elm-app');
 var app = Elm.Elm.Main.init({
   node: mountNode,
   flags: {
-    rootUrl: "https://iiif.durham.ac.uk/manifests/trifle/collection/32150/t3cvx021f09g",
+//    rootUrl: "https://iiif.durham.ac.uk/manifests/trifle/collection/32150/t3cvx021f09g",
+    rootUrl: "http://ryanfb.github.io/iiif-universe/iiif-universe.json",
     uriMapper: {
       inflaters: [
         { regex: "^(t\\d)(m[a-z0-9])([a-z0-9]{2})([a-z0-9]+)$", 
@@ -80,4 +85,12 @@ app.ports.scrollToView.subscribe(function (data) {
       }
     }  
   })
+});
+
+document.addEventListener('lazybeforeunveil', function(e){
+  var elem = $(e.target);
+  if(elem.hasClass("manifest_lazyload")) {
+    var uri = elem.data("manifest-uri")
+    if(uri) app.ports.lazyLoadManifest.send(uri);
+  }
 });
