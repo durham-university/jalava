@@ -17,7 +17,9 @@ import Utils exposing(iiifLink, pluralise)
 
 import ManifestDetails exposing(..)
 
-import Iiif exposing(..)
+import Iiif.Types exposing(..)
+import Iiif.Loading
+import Iiif.Utils exposing(..)
 
 type alias Model =
   { iiif : Iiif
@@ -29,7 +31,7 @@ type alias Model =
 type Msg  = SetManifest (Maybe ManifestUri)
           | SetCanvas (Maybe CanvasUri)
           | RangeClicked RangeUri
-          | IiifNotification Iiif.Notification
+          | IiifNotification Iiif.Loading.Notification
 
 type OutMsg = RangeSelected RangeUri
 
@@ -44,7 +46,7 @@ init flags = (emptyModel, Cmd.none, [])
 
 emptyModel : Model
 emptyModel  = 
-  { iiif = Iiif.empty
+  { iiif = Iiif.Utils.empty
   , manifest = Nothing
   , canvas = Nothing
   , errors = []

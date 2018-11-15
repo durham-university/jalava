@@ -16,7 +16,10 @@ import Bootstrap.Button as Button
 import Update as U
 import Utils exposing(iiifLink, pluralise, wrapKey, spinner)
 
-import Iiif exposing(..)
+import Iiif.Types exposing(..)
+import Iiif.ImageApi
+import Iiif.Loading
+import Iiif.Utils exposing(getManifest, isStub)
 import UriMapper exposing (UriMapper)
 
 type alias Model =
@@ -30,7 +33,7 @@ type alias Model =
 type Msg  = SetManifest (Maybe ManifestUri)
           | SelectCanvas (Maybe CanvasUri)
           | CanvasClicked CanvasUri
-          | IiifNotification Iiif.Notification
+          | IiifNotification Iiif.Loading.Notification
 
 type OutMsg = CanvasOpened CanvasUri
 
@@ -44,7 +47,7 @@ init flags = (emptyModel, Cmd.none, [])
 
 emptyModel : Model
 emptyModel = 
-  { iiif = Iiif.empty
+  { iiif = Iiif.Utils.empty
   , manifest = Nothing
   , sequence = Nothing
   , selectedCanvas = Nothing
@@ -102,6 +105,6 @@ canvasButton model canvas =
 
 canvasImgHtml : Canvas -> Html msg
 canvasImgHtml canvas = 
-  img [ height 60, class "lazyload", src "spinner_40x60.gif", attribute "data-src" <| Iiif.canvasThumbnailUrl (Iiif.FitH 60) canvas] []
+  img [ height 60, class "lazyload", src "spinner_40x60.gif", attribute "data-src" <| Iiif.ImageApi.canvasThumbnailUrl (Iiif.ImageApi.FitH 60) canvas] []
 
 

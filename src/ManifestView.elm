@@ -19,7 +19,10 @@ import Utils exposing(iiifLink, pluralise, flip)
 import CanvasList
 import ManifestMenu
 
-import Iiif exposing(..)
+import Iiif.Types exposing(..)
+import Iiif.Loading
+import Iiif.Utils exposing(getManifest, getCanvas, getRange, isStub, manifestToString)
+import Iiif.ImageApi exposing(osdSource)
 
 port osdCmd : Encode.Value -> Cmd msg
 
@@ -45,7 +48,7 @@ type Msg  = SetManifest (Maybe ManifestUri)
           | SetManifestAndCanvas (Maybe ManifestUri) (Maybe CanvasUri)
           | CanvasListMsg CanvasList.Msg
           | ManifestMenuMsg ManifestMenu.Msg
-          | IiifNotification Iiif.Notification
+          | IiifNotification Iiif.Loading.Notification
           | SetMenuOpen Bool
           | CloseClicked
 
@@ -60,7 +63,7 @@ canvasList =
   U.subComponent 
     { component = CanvasList.component 
     , unwrapModel = \model -> let subModel = model.canvasListModel in {subModel | iiif = model.iiif}
-    , wrapModel = \model subModel -> { model | canvasListModel = { subModel | iiif = Iiif.empty }, errors = model.errors ++ subModel.errors}
+    , wrapModel = \model subModel -> { model | canvasListModel = { subModel | iiif = Iiif.Utils.empty }, errors = model.errors ++ subModel.errors}
     , wrapMsg = CanvasListMsg
     , outEvaluator = \msgSub model ->
         case msgSub of
@@ -74,7 +77,7 @@ manifestMenu =
   U.subComponent 
     { component = ManifestMenu.component 
     , unwrapModel = \model -> let subModel = model.menuModel in {subModel | iiif = model.iiif}
-    , wrapModel = \model subModel -> { model | menuModel = { subModel | iiif = Iiif.empty }, errors = model.errors ++ subModel.errors}
+    , wrapModel = \model subModel -> { model | menuModel = { subModel | iiif = Iiif.Utils.empty }, errors = model.errors ++ subModel.errors}
     , wrapMsg = ManifestMenuMsg
     , outEvaluator = \msgSub model ->
         case msgSub of
@@ -138,7 +141,7 @@ init flags =
 
 emptyModel : Model
 emptyModel  = 
-  { iiif = Iiif.empty
+  { iiif = Iiif.Utils.empty
   , manifest = Nothing
   , canvas = Nothing
   , canvasListModel = CanvasList.emptyModel
@@ -211,19 +214,19 @@ loadOtherContent model =
     _ -> (model, Cmd.none, [])
 
 
-osdNotification : Iiif.Notification -> Model -> (Model, Cmd Msg, List OutMsg)
+osdNotification : Iiif.Loading.Notification -> Model -> (Model, Cmd Msg, List OutMsg)
 osdNotification notification model =
   case model.manifest of
     Just modelManifestUri ->
       case notification of
-        Iiif.ManifestLoaded manifestUri -> 
+        Iiif.Loading.ManifestLoaded manifestUri -> 
           if manifestUri == modelManifestUri then
             case model.canvas of
               Nothing -> update (SetManifest (Just modelManifestUri)) model
               Just canvasUri -> update (SetManifestAndCanvas (Just modelManifestUri) (Just canvasUri)) model
           else (model, Cmd.none, [])
-        Iiif.CollectionLoaded collectionUri -> (model, Cmd.none, [])
-        Iiif.AnnotationListLoaded _ -> (model, Cmd.none, [])
+        Iiif.Loading.CollectionLoaded collectionUri -> (model, Cmd.none, [])
+        Iiif.Loading.AnnotationListLoaded _ -> (model, Cmd.none, [])
     Nothing -> (model, Cmd.none, [])
 
 

@@ -18,7 +18,9 @@ import Bootstrap.Alert as Alert
 
 import Utils exposing(..)
 
-import Iiif exposing (..)
+import Iiif.Types exposing(..)
+import Iiif.Loading exposing(loadManifest, loadCollection, loadAnnotationList)
+import Iiif.Utils
 import UriMapper exposing (UriMapper)
 import Update as U
 
@@ -49,8 +51,8 @@ type Msg
   | CollectionTreeMsg CollectionTree.Msg
   | CollectionViewMsg CollectionView.Msg
   | ManifestViewMsg ManifestView.Msg
-  | IiifMsg Iiif.Msg
-  | IiifNotification Iiif.Notification
+  | IiifMsg Iiif.Loading.Msg
+  | IiifNotification Iiif.Loading.Notification
   | AlertMsg Int Alert.Visibility
 
 type OutMsg
@@ -68,7 +70,7 @@ collectionTree =
   U.subComponent 
     { component = CollectionTree.component 
     , unwrapModel = \model -> let subModel = model.collectionTreeModel in {subModel | iiif = model.iiif}
-    , wrapModel = \model subModel -> { model | collectionTreeModel = { subModel | iiif = Iiif.empty }, errors = model.errors ++ subModel.errors}
+    , wrapModel = \model subModel -> { model | collectionTreeModel = { subModel | iiif = Iiif.Utils.empty }, errors = model.errors ++ subModel.errors}
     , wrapMsg = CollectionTreeMsg
     , outEvaluator = \msgSub model ->
         case msgSub of
@@ -81,7 +83,7 @@ collectionView =
   U.subComponent 
     { component = CollectionView.component 
     , unwrapModel = \model -> let subModel = model.collectionViewModel in {subModel | iiif = model.iiif}
-    , wrapModel = \model subModel -> { model | collectionViewModel = { subModel | iiif = Iiif.empty }, errors = model.errors ++ subModel.errors}
+    , wrapModel = \model subModel -> { model | collectionViewModel = { subModel | iiif = Iiif.Utils.empty }, errors = model.errors ++ subModel.errors}
     , wrapMsg = CollectionViewMsg
     , outEvaluator = \msgSub model ->
         case msgSub of
@@ -95,7 +97,7 @@ manifestView =
   U.subComponent 
     { component = ManifestView.component 
     , unwrapModel = \model -> let subModel = model.manifestViewModel in {subModel | iiif = model.iiif}
-    , wrapModel = \model subModel -> { model | manifestViewModel = { subModel | iiif = Iiif.empty }, errors = model.errors ++ subModel.errors}
+    , wrapModel = \model subModel -> { model | manifestViewModel = { subModel | iiif = Iiif.Utils.empty }, errors = model.errors ++ subModel.errors}
     , wrapMsg = ManifestViewMsg
     , outEvaluator = \msgSub model ->
         case msgSub of
@@ -195,7 +197,7 @@ emptyModel : Url.Url -> Nav.Key -> Model
 emptyModel url key = 
   { key = key
   , url = url
-  , iiif = Iiif.empty
+  , iiif = Iiif.Utils.empty
   , collectionTreeModel = CollectionTree.emptyModel
   , collectionViewModel = CollectionView.emptyModel
   , manifestViewModel = ManifestView.emptyModel
@@ -281,7 +283,7 @@ update msg model =
         |> U.chain (manifestView.updater manifestViewMsg)
         |> U.evalOut2 outMsgEvaluator
     IiifMsg iiifMsg ->
-      let (newModel, maybeNotification) = Iiif.update iiifMsg model
+      let (newModel, maybeNotification) = Iiif.Loading.update iiifMsg model
       in case maybeNotification of
         Just notification -> update (IiifNotification notification) newModel
         Nothing -> (newModel, Cmd.none)

@@ -15,7 +15,11 @@ import Bootstrap.Card as Card
 import Bootstrap.Card.Block as Block
 import Bootstrap.ListGroup as ListGroup
 
-import Iiif exposing(..)
+import Iiif.Types exposing(..)
+import Iiif.Utils exposing(getManifest, getCollection, isStub, manifestToString)
+import Iiif.Loading
+import Iiif.ImageApi
+
 import ManifestDetails
 import Utils exposing(iiifLink, pluralise, wrapKey)
 import Update as U
@@ -36,7 +40,7 @@ type Msg = AddManifest ManifestUri
          | ClearCollection
          | ManifestClicked ManifestUri
          | CanvasClicked ManifestUri CanvasUri
-         | IiifNotification Iiif.Notification
+         | IiifNotification Iiif.Loading.Notification
 
 type OutMsg = LoadManifest ManifestUri
             | LoadCollection CollectionUri
@@ -52,7 +56,7 @@ init : Decode.Value -> ( Model, Cmd Msg, List OutMsg )
 init flags = (emptyModel, Cmd.none, [])
 
 emptyModel = 
-  { iiif = Iiif.empty
+  { iiif = Iiif.Utils.empty
   , manifests = []
   , collection = Nothing
   , selectedManifest = Nothing
@@ -69,7 +73,7 @@ update msg model =
     SetCollection collectionUri -> updateLoadManifests { model | collection = Just collectionUri }
     IiifNotification notification -> 
       case notification of
-        Iiif.CollectionLoaded collectionUri -> 
+        Iiif.Loading.CollectionLoaded collectionUri -> 
           if model.collection == Just collectionUri then
             updateLoadManifests model
           else
@@ -109,7 +113,7 @@ view model =
 manifestLine : Iiif -> ManifestUri -> Html Msg
 manifestLine iiif manifestUri =
   let 
-    manifest = Iiif.getManifest iiif manifestUri
+    manifest = getManifest iiif manifestUri
     maybeSequence = List.head manifest.sequences
     maybeAllCanvases = Maybe.map (.canvases) maybeSequence
     allCanvases = Maybe.withDefault [] maybeAllCanvases
@@ -128,7 +132,7 @@ manifestLine iiif manifestUri =
   in
   Grid.row [ Row.attrs lazyLoadAttrs ] [ Grid.col [] [
     Card.config [ Card.attrs [class "manifest_preview_card"] ]
-      |> Card.headerH3 [] (logoHtml ++ [ Button.button [Button.roleLink, Button.attrs [onClick (ManifestClicked manifestUri)]] [text <| Iiif.manifestToString manifest] ] ++ spinnerHtml)
+      |> Card.headerH3 [] (logoHtml ++ [ Button.button [Button.roleLink, Button.attrs [onClick (ManifestClicked manifestUri)]] [text <| manifestToString manifest] ] ++ spinnerHtml)
       |> Card.listGroup 
           [ ListGroup.li [] [ (canvasesLine manifest canvases) ]
           , ListGroup.li [ ListGroup.attrs [class "manifest_details collapse", id details_id] ] [ ManifestDetails.manifestDetails manifest ]
@@ -151,4 +155,4 @@ canvasesLine manifest canvases =
 
 canvasImgHtml : Canvas -> Html msg
 canvasImgHtml canvas = 
-  img [ height 60, class "lazyload", src "spinner_40x60.gif", attribute "data-src" <| Iiif.canvasThumbnailUrl (Iiif.FitH 60) canvas] []
+  img [ height 60, class "lazyload", src "spinner_40x60.gif", attribute "data-src" <| Iiif.ImageApi.canvasThumbnailUrl (Iiif.ImageApi.FitH 60) canvas] []

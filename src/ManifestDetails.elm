@@ -4,7 +4,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Dict
 
-import Iiif exposing(..)
+import Iiif.Types exposing(..)
 
 manifestDetails : Manifest -> Html msg
 manifestDetails manifest = manifestDetailsExtras manifest []

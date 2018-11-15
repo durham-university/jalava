@@ -16,7 +16,9 @@ import ManifestList
 import Update as U
 import Utils exposing(iiifLink, pluralise, spinner)
 
-import Iiif exposing(..)
+import Iiif.Types exposing(..)
+import Iiif.Utils exposing(getManifest, getCollection, isStub, collectionToString)
+import Iiif.Loading
 
 type alias Model =
   { iiif : Iiif
@@ -27,7 +29,7 @@ type alias Model =
 
 type Msg  = SetCollection (Maybe CollectionUri)
           | ManifestListMsg ManifestList.Msg
-          | IiifNotification Iiif.Notification
+          | IiifNotification Iiif.Loading.Notification
 
 type OutMsg = LoadManifest ManifestUri
             | LoadCollection CollectionUri
@@ -39,7 +41,7 @@ manifestList =
   U.subComponent 
     { component = ManifestList.component 
     , unwrapModel = \model -> let subModel = model.manifestListModel in {subModel | iiif = model.iiif}
-    , wrapModel = \model subModel -> { model | manifestListModel = { subModel | iiif = Iiif.empty }, errors = model.errors ++ subModel.errors}
+    , wrapModel = \model subModel -> { model | manifestListModel = { subModel | iiif = Iiif.Utils.empty }, errors = model.errors ++ subModel.errors}
     , wrapMsg = ManifestListMsg
     , outEvaluator = \msgSub model ->
         case msgSub of
@@ -65,7 +67,7 @@ init flags =
 
 emptyModel : Model
 emptyModel = 
-  { iiif = Iiif.empty
+  { iiif = Iiif.Utils.empty
   , collection = Nothing
   , manifestListModel = ManifestList.emptyModel
   , errors = []

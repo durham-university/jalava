@@ -8,7 +8,10 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import Bootstrap.Button as Button
 
-import Iiif exposing(..)
+import Iiif.Types exposing(..)
+import Iiif.Loading
+import Iiif.Utils exposing(getCollection, getCollections, isStub)
+
 import Utils exposing(..)
 import Update as U
 
@@ -16,7 +19,7 @@ type Msg  = OpenCollection CollectionUri
           | CloseCollection CollectionUri
           | SelectPath (List CollectionUri)
           | CollectionClicked (List CollectionUri)
-          | IiifNotification Iiif.Notification
+          | IiifNotification Iiif.Loading.Notification
 
 type OutMsg = LoadManifest ManifestUri
             | LoadCollection CollectionUri
@@ -49,7 +52,7 @@ init flags =
 
 emptyModel : Model
 emptyModel =
-  { iiif = Iiif.empty
+  { iiif = Iiif.Utils.empty
   , collections = []
   , openedCollections = Set.empty
   , selectedCollection = []

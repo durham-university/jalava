@@ -1,6 +1,6 @@
 module Utils exposing(..)
 
-import Iiif exposing(Iiif)
+import Iiif.Types
 
 import Html exposing(Html)
 import Html.Attributes
@@ -17,7 +17,7 @@ arrayRemove index list =
     (_, x :: xs) -> x :: (arrayRemove (index - 1) xs)
 
 
-iiifLink : Iiif.Uri -> Html msg
+iiifLink : Iiif.Types.Uri -> Html msg
 iiifLink uri =
   Html.a [ Html.Attributes.href uri, Html.Attributes.class "iiif_link" ] []
 

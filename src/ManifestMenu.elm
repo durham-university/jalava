@@ -19,7 +19,9 @@ import Utils exposing(iiifLink, pluralise)
 import ManifestDetails exposing(..)
 import StructuresView
 
-import Iiif exposing(..)
+import Iiif.Types exposing(..)
+import Iiif.Utils exposing(getManifest)
+import Iiif.Loading
 
 type alias Model =
   { iiif : Iiif
@@ -37,7 +39,7 @@ type Msg  = SetManifest (Maybe ManifestUri)
           | ResetMenu
           | TabMsg Tab.State
           | StructuresViewMsg StructuresView.Msg
-          | IiifNotification Iiif.Notification
+          | IiifNotification Iiif.Loading.Notification
 
 type OutMsg = RangeSelected RangeUri
 
@@ -45,7 +47,7 @@ structuresView =
   U.subComponent 
     { component = StructuresView.component 
     , unwrapModel = \model -> let subModel = model.structuresViewModel in {subModel | iiif = model.iiif}
-    , wrapModel = \model subModel -> { model | structuresViewModel = { subModel | iiif = Iiif.empty }, errors = model.errors ++ subModel.errors}
+    , wrapModel = \model subModel -> { model | structuresViewModel = { subModel | iiif = Iiif.Utils.empty }, errors = model.errors ++ subModel.errors}
     , wrapMsg = StructuresViewMsg
     , outEvaluator = \msgSub model ->
         case msgSub of
@@ -65,7 +67,7 @@ init flags =
 
 emptyModel : Model
 emptyModel  = 
-  { iiif = Iiif.empty
+  { iiif = Iiif.Utils.empty
   , manifest = Nothing
   , canvas = Nothing
   , open = False
