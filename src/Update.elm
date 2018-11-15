@@ -35,6 +35,15 @@ maybeChain updater maybeValue =
     Nothing -> identity
     Just v -> chain (updater v)
 
+chainIf :
+  Bool ->
+  ( model -> ( model, Cmd msg, List outMsg ) ) ->
+  ( model, Cmd msg, List outMsg ) ->
+  ( model, Cmd msg, List outMsg )
+chainIf cond updater state =
+  if cond then chain updater state
+  else state
+
 
 fold :
   ( a -> model -> ( model, Cmd msg, List outMsg ) ) ->

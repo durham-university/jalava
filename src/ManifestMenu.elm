@@ -34,6 +34,7 @@ type alias Model =
 type Msg  = SetManifest (Maybe ManifestUri)
           | SetCanvas (Maybe CanvasUri)
           | SetMenuOpen Bool
+          | ResetMenu
           | TabMsg Tab.State
           | StructuresViewMsg StructuresView.Msg
           | IiifNotification Iiif.Notification
@@ -76,6 +77,8 @@ emptyModel  =
 update : Msg -> Model -> ( Model, Cmd Msg, List OutMsg )
 update msg model =
   case msg of
+    ResetMenu -> 
+      ({model | open = False, tabState = Tab.customInitialState "manifest_view_menu_info"}, Cmd.none, [])
     SetManifest maybeManifestUri -> 
       ({model | manifest = maybeManifestUri, canvas = Nothing}, Cmd.none, [])
       |> U.chain (structuresView.updater (StructuresView.SetManifest maybeManifestUri))

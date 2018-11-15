@@ -172,6 +172,7 @@ update msg model =
       ({model | manifest = maybeManifestUri, canvas = maybeCanvasUri}, Cmd.none, loadMsg)
         |> U.chain (canvasList.updater (CanvasList.SetManifest maybeManifestUri))
         |> U.chain (canvasList.updater (CanvasList.SelectCanvas maybeCanvasUri))
+        |> U.chainIf manifestChanging (manifestMenu.updater (ManifestMenu.ResetMenu))
         |> U.chain (manifestMenu.updater (ManifestMenu.SetManifest maybeManifestUri))
         |> U.chain (manifestMenu.updater (ManifestMenu.SetCanvas maybeCanvasUri))
         |> U.chain (manifestMenu.updater (ManifestMenu.SetMenuOpen (model.menuModel.open && not manifestChanging)))
