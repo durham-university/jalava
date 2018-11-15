@@ -56,6 +56,7 @@ type Msg
 type OutMsg
   = LoadCollection CollectionUri
   | LoadManifest ManifestUri
+  | LoadAnnotationList AnnotationListUri
   | CollectionSelected (List CollectionUri)
   | ManifestSelected ManifestUri
   | CanvasSelected ManifestUri CanvasUri
@@ -100,6 +101,7 @@ manifestView =
         case msgSub of
           ManifestView.LoadManifest uri -> (model, Cmd.none, [LoadManifest uri])
           ManifestView.LoadCollection uri -> (model, Cmd.none, [LoadCollection uri])
+          ManifestView.LoadAnnotationList uri -> (model, Cmd.none, [LoadAnnotationList uri])
           ManifestView.CanvasOpened manifestUri canvasUri -> (model, Cmd.none, [CanvasOpened manifestUri canvasUri])
           ManifestView.CloseViewer -> (model, Cmd.none, [CloseViewer])
     }
@@ -217,6 +219,12 @@ outMsgEvaluator msg model =
         |> U.mapModel (\m -> {model | iiif = m})
         |> U.mapCmd IiifMsg
         |> U.ignoreOut
+    LoadAnnotationList annotationListUri ->
+      (model.iiif, Cmd.none, [])
+        |> U.chain2 (loadAnnotationList annotationListUri)
+        |> U.mapModel (\m -> {model | iiif = m})
+        |> U.mapCmd IiifMsg
+        |> U.ignoreOut
     CollectionSelected path ->
       let collectionUri = List.head path
       in 
@@ -278,11 +286,6 @@ update msg model =
         Just notification -> update (IiifNotification notification) newModel
         Nothing -> (newModel, Cmd.none)
     IiifNotification notification ->
-      let 
-        _ = case notification of 
-          Iiif.ManifestLoaded uri -> uri
-          Iiif.CollectionLoaded uri -> uri
-      in
       (model, Cmd.none, [])
         |> U.chain (collectionTree.updater (CollectionTree.IiifNotification notification))
         |> U.chain (collectionView.updater (CollectionView.IiifNotification notification))

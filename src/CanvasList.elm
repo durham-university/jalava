@@ -96,7 +96,7 @@ canvasButton model canvas =
     selected = if model.selectedCanvas == Just canvas.id then " selected" else ""
   in
   div [class ("canvas_button" ++ selected), id (buttonIdFor canvas.id)] 
-    [ Button.button [ Button.roleLink, Button.attrs [style "width" ((String.fromInt width) ++ "px;"), class "canvas_preview", onClick (CanvasClicked canvas.id)]] [ canvasImgHtml canvas ]
+    [ Button.button [ Button.roleLink, Button.attrs [attribute "style" ("width: " ++ (String.fromInt width) ++ "px;"), class "canvas_preview", onClick (CanvasClicked canvas.id)]] [ canvasImgHtml canvas ]
     , div [class "canvas_label"] [text (Maybe.withDefault "" canvas.label)]
     ]
 

@@ -17,7 +17,9 @@ type alias SequenceUri = Uri
 
 type alias CanvasUri = Uri
 
-type alias ImageUri = Uri
+type alias AnnotationListUri = Uri
+
+type alias AnnotationUri = Uri
 
 type alias ResourceUri = Uri
 
@@ -28,6 +30,8 @@ type alias RangeUri = Uri
 type alias ManifestDict = Dict ManifestUri Manifest
 
 type alias CollectionDict = Dict CollectionUri Collection
+
+type alias AnnotationListDict = Dict AnnotationListUri AnnotationList
 
 type Status = Stub | Loading | Full
 
@@ -84,8 +88,9 @@ type alias Canvas =
   , label : Maybe String
   , width : Int
   , height : Int
-  , images : List Image
+  , images : List Annotation
   , thumbnail : Maybe Resource
+  , otherContent : List OtherContent
   }
 
 canvasDecoder : Decode.Decoder Canvas
@@ -95,39 +100,74 @@ canvasDecoder =
     |> optional "label" jsonLdValueStringDecoder Nothing
     |> required "width" Decode.int
     |> required "height" Decode.int
-    |> optional "images" (Decode.list imageDecoder) []
+    |> optional "images" (Decode.list annotationDecoder) []
     |> optional "thumbnail" (Decode.nullable resourceDecoder) Nothing
+    |> optional "otherContent" (decodeListOrSingle otherContentDecoder) []
 
-
-type alias Image =
-  { id : Maybe ImageUri
+type alias Annotation =
+  { id : Maybe AnnotationUri
+  , motivation : Maybe String
   , resource : Resource
+  , on : Maybe AnnotationOn
   }
 
-imageDecoder : Decode.Decoder Image
-imageDecoder = 
-  Decode.succeed Image
+annotationDecoder : Decode.Decoder Annotation
+annotationDecoder = 
+  Decode.succeed Annotation
     |> optional "@id" (Decode.nullable Decode.string) Nothing
+    |> optional "motivation" jsonLdValueStringDecoder Nothing
     |> required "resource" resourceDecoder
+    |> optional "on" (Decode.nullable annotationOnDecoder) Nothing
+
+type alias AnnotationOn =
+  { full : Uri
+  , selector : Maybe Selector
+  }
+
+annotationOnDecoder : Decode.Decoder AnnotationOn
+annotationOnDecoder =
+  Decode.oneOf
+    [ Decode.string |> Decode.map (\s -> AnnotationOn s Nothing)
+    , Decode.succeed AnnotationOn
+        |> required "full" Decode.string
+        |> optional "selector" (Decode.map Just annotationSelectorDecoder) Nothing
+    ]
+
+type alias Selector =
+  { selectorType : Maybe String
+  , value : String
+  }
+
+annotationSelectorDecoder : Decode.Decoder Selector
+annotationSelectorDecoder =
+  Decode.succeed Selector
+    |> optional "@type" (Decode.nullable Decode.string) Nothing
+    |> required "value" (Decode.map (Maybe.withDefault "") jsonLdValueStringDecoder)
 
 type alias Resource =
-  { id : ResourceUri
+  { id : Maybe ResourceUri
+  , resourceType : Maybe String
   , format : Maybe String
   , width : Maybe Int
   , height : Maybe Int
   , service : Maybe Service
+  , chars : Maybe String
+  , label : Maybe String
   }
 
 resourceDecoder : Decode.Decoder Resource
 resourceDecoder = 
   Decode.oneOf 
   [ Decode.succeed Resource
-      |> required "@id" Decode.string
+      |> optional "@id" (Decode.nullable Decode.string) Nothing
+      |> optional "@type" (Decode.nullable Decode.string) Nothing
       |> optional "format" jsonLdValueStringDecoder Nothing
       |> optional "width" (Decode.nullable Decode.int) Nothing
       |> optional "height" (Decode.nullable Decode.int) Nothing
       |> optional "service" (Decode.nullable serviceDecoder) Nothing
-  , Decode.string |> Decode.map (\id -> Resource id Nothing Nothing Nothing Nothing)
+      |> optional "chars" jsonLdValueStringDecoder Nothing
+      |> optional "label" jsonLdValueStringDecoder Nothing
+  , Decode.string |> Decode.map (\id -> Resource (Just id) Nothing Nothing Nothing Nothing Nothing Nothing Nothing)
   ]
 
 
@@ -143,10 +183,7 @@ serviceDecoder : Decode.Decoder Service
 serviceDecoder = 
   Decode.succeed Service
     |> required "@id" Decode.string
-    |> required "profile" (Decode.oneOf [
-          Decode.string |> Decode.map List.singleton,
-          Decode.list Decode.string
-        ])
+    |> required "profile" (decodeListOrSingle Decode.string)
     |> optional "width" (Decode.nullable Decode.int) Nothing
     |> optional "height" (Decode.nullable Decode.int) Nothing
     |> optional "sizes" (Decode.list serviceSizeDecoder) []
@@ -179,15 +216,8 @@ rangeDecoder =
 type alias Iiif =
   { collections : CollectionDict
   , manifests : ManifestDict
+  , annotationLists : AnnotationListDict
   }
-
-type Msg 
-  = CollectionLoadedInt CollectionUri (Result Http.Error (CollectionUri, Iiif))
-  | ManifestLoadedInt ManifestUri (Result Http.Error (ManifestUri, Iiif))
-
-type Notification
-  = ManifestLoaded ManifestUri
-  | CollectionLoaded CollectionUri
 
 type alias JsonLdValue a = List (SingleValue a)
 
@@ -225,7 +255,18 @@ singleValueDecoder valueDecoder =
         |> optional "@type" (Decode.nullable Decode.string) Nothing
     ]
   
+type alias OtherContent =
+  { id : String
+  , contentType : Maybe String
+  , label : Maybe String
+  }
 
+otherContentDecoder : Decode.Decoder OtherContent
+otherContentDecoder =
+  Decode.succeed OtherContent
+    |> required "@id" Decode.string
+    |> optional "@type" (Decode.nullable Decode.string) Nothing
+    |> optional "label" jsonLdValueStringDecoder Nothing
 
 --------------
 -- DECODING --
@@ -257,6 +298,14 @@ stubCollection id label logo =
   , status = Stub
   }
 
+stubAnnotationList : AnnotationListUri -> AnnotationList
+stubAnnotationList id =
+  { id = id
+  , label = Nothing
+  , annotations = []
+  , status = Stub
+  }
+
 manifestDecoder : Decode.Decoder (ManifestUri, Iiif)
 manifestDecoder = 
   let
@@ -278,9 +327,9 @@ manifestDecoder =
       |> hardcoded Full
     manifestUri = Decode.map .id manifest
     manifestDict = Decode.map2 Dict.singleton manifestUri manifest
-    iiif = Decode.map (Iiif Dict.empty) manifestDict
+    iiif = Decode.map (\m -> Iiif Dict.empty m Dict.empty) manifestDict
   in
-  Decode.map2 tuple2 manifestUri iiif
+  Decode.map2 Tuple.pair manifestUri iiif
 
 
 metadataDecoder : Decode.Decoder (Dict String (List String))
@@ -321,14 +370,19 @@ manifestStubDecoder =
     |> optional "logo" jsonLdValueStringDecoder Nothing
 
 
+decodeListOrSingle : Decode.Decoder a -> Decode.Decoder (List a)
+decodeListOrSingle valueDecoder =
+  Decode.oneOf
+    [ valueDecoder |> Decode.map List.singleton
+    , Decode.list valueDecoder
+    ]
+
+
 
 
 maybeAttr maybeValue name = case maybeValue of
   Just value -> Just (name, Encode.string value)
   Nothing -> Nothing
-
-tuple2 : a -> b -> (a, b)
-tuple2 a b = (a, b)
 
 collectionDecoder : Decode.Decoder (CollectionUri, Iiif)
 collectionDecoder = 
@@ -346,9 +400,9 @@ collectionDecoder =
     allCollections = Decode.map2 (\c d -> Dict.insert c.id c d) collection subCollections
     allManifests = Decode.succeed Dict.fromList
       |> optional "manifests" (Decode.list (Decode.map (\m -> (m.id, m)) manifestStubDecoder)) []
-    iiif = Decode.map2 Iiif allCollections allManifests
+    iiif = Decode.map2 (\c m -> Iiif c m Dict.empty) allCollections allManifests
   in
-  Decode.map2 tuple2 collectionUri iiif
+  Decode.map2 Tuple.pair collectionUri iiif
 
 collectionStubDecoder : Decode.Decoder Collection
 collectionStubDecoder =
@@ -357,14 +411,37 @@ collectionStubDecoder =
     |> optional "label" jsonLdValueStringDecoder Nothing
     |> optional "logo" jsonLdValueStringDecoder Nothing
 
+
+type alias AnnotationList =
+  { id : AnnotationListUri
+  , label : Maybe String
+  , annotations : List Annotation
+  , status : Status
+  }
+
+annotationListDecoder : Decode.Decoder (AnnotationListUri, Iiif)
+annotationListDecoder =
+  let
+    annotationList = Decode.succeed AnnotationList
+      |> required "@id" Decode.string
+      |> optional "label" jsonLdValueStringDecoder Nothing
+      |> optional "resources" (Decode.list annotationDecoder) []
+      |> hardcoded Full
+    annotationListUri = Decode.map .id annotationList
+    annotationListDict = Decode.map2 Dict.singleton annotationListUri annotationList
+    iiif = Decode.map (Iiif Dict.empty Dict.empty) annotationListDict
+  in
+  Decode.map2 Tuple.pair annotationListUri iiif
+
 ----------
 -- IIIF --
 ----------
 
 empty : Iiif
-empty = {
-    collections = Dict.empty,
-    manifests = Dict.empty
+empty = 
+  { collections = Dict.empty
+  , manifests = Dict.empty
+  , annotationLists = Dict.empty
   }
 
 dictInsert : { a | id : Uri, status : Status } -> Dict Uri { a | id : Uri, status : Status } -> Dict Uri { a | id : Uri, status : Status }
@@ -390,6 +467,10 @@ addCollection : Collection -> Iiif -> Iiif
 addCollection collection iiif =
   { iiif | collections = dictInsert collection iiif.collections }
 
+addAnnotationList : AnnotationList -> Iiif -> Iiif
+addAnnotationList annotationList iiif =
+  { iiif | annotationLists = dictInsert annotationList iiif.annotationLists }  
+
 getObject : String -> (String -> Maybe String -> Maybe String -> b) -> Dict String b -> b
 getObject key default dict =
   let maybe = Dict.get key dict
@@ -407,6 +488,10 @@ aliasCollection : Collection -> CollectionUri -> Iiif -> Iiif
 aliasCollection collection aliasUri iiif =
   addCollection {collection | id = aliasUri} iiif
 
+aliasAnnotationList : AnnotationList -> AnnotationListUri -> Iiif -> Iiif
+aliasAnnotationList annotationList aliasUri iiif =
+  addAnnotationList {annotationList | id = aliasUri} iiif
+
 
 getManifest : Iiif -> ManifestUri -> Manifest
 getManifest iiif manifestUri = getObject manifestUri stubManifest iiif.manifests
@@ -419,6 +504,9 @@ getCollection iiif collectionUri = getObject collectionUri stubCollection iiif.c
 
 getCollections : Iiif -> List CollectionUri -> List Collection
 getCollections iiif = List.map (getCollection iiif)
+
+getAnnotationList : Iiif -> AnnotationListUri -> AnnotationList
+getAnnotationList iiif annotationListUri = getObject annotationListUri (\id _ _ -> stubAnnotationList id) iiif.annotationLists
 
 getRange : Manifest -> RangeUri -> Maybe Range
 getRange manifest rangeUri =
@@ -458,12 +546,12 @@ getCanvas manifest canvasUri =
     |> List.filterMap identity 
     |> List.head
 
-osdSourceImage : Image -> String
-osdSourceImage image =
-  case image.resource.service of
+osdSourceImage : Annotation -> String
+osdSourceImage annotation =
+  case annotation.resource.service of
     -- TODO: Should check service profile
     Just service -> service.id ++ "/info.json"
-    Nothing -> image.resource.id
+    Nothing -> Maybe.withDefault "" annotation.resource.id
 
 osdSource : Canvas -> Maybe String
 osdSource canvas = 
@@ -493,6 +581,16 @@ collectionToString = toString "Unnamed collection"
 -- Loading --
 -------------
 
+type Msg 
+  = CollectionLoadedInt CollectionUri (Result Http.Error (CollectionUri, Iiif))
+  | ManifestLoadedInt ManifestUri (Result Http.Error (ManifestUri, Iiif))
+  | AnnotationListLoadedInt AnnotationListUri (Result Http.Error (AnnotationListUri, Iiif))
+
+type Notification
+  = ManifestLoaded ManifestUri
+  | CollectionLoaded CollectionUri
+  | AnnotationListLoaded AnnotationListUri
+
 httpErrorToString : Http.Error -> String
 httpErrorToString e =
   case e of
@@ -519,6 +617,13 @@ update msg model =
           |> (\m -> if uri == collectionUri then m else {m | iiif = aliasCollection (getCollection m.iiif uri) collectionUri m.iiif} )
           |> (\m -> (m, Just (CollectionLoaded collectionUri)))
         Err e -> ({ model | errors = model.errors ++ ["Error loading collection " ++ collectionUri ++ ". " ++ (httpErrorToString e)] }, Nothing)
+    AnnotationListLoadedInt annotationListUri res ->
+      case res of
+        Ok (uri, iiif) -> 
+          { model | iiif = annotationListLoaded iiif model.iiif }
+          |> (\m -> if uri == annotationListUri then m else {m | iiif = aliasAnnotationList (getAnnotationList m.iiif uri) annotationListUri m.iiif} )
+          |> (\m -> (m, Just (AnnotationListLoaded annotationListUri)))
+        Err e -> ({ model | errors = model.errors ++ ["Error loading annotationList " ++ annotationListUri ++ ". " ++ (httpErrorToString e)] }, Nothing)
 
 
 loadManifest : ManifestUri -> Iiif -> (Iiif, Cmd Msg)
@@ -559,11 +664,33 @@ loadCollection uri iiif =
           Full -> ( iiif, Cmd.none )          
 
 
+loadAnnotationList : AnnotationListUri -> Iiif -> (Iiif, Cmd Msg)
+loadAnnotationList uri iiif =
+  let
+    maybeExisting = Dict.get uri iiif.annotationLists
+    cmd = Http.send (AnnotationListLoadedInt uri) (Http.get uri annotationListDecoder)
+  in
+    case maybeExisting of
+      Nothing ->
+        let stub = stubAnnotationList uri
+        in ( addAnnotationList { stub | status = Loading } iiif, cmd)
+      Just existing ->
+        case existing.status of
+          Stub ->
+            let loading = { existing | status = Loading}
+            in ( addAnnotationList loading iiif, cmd )
+          Loading -> ( iiif, Cmd.none )
+          Full -> ( iiif, Cmd.none )
+
+
 manifestLoaded : Iiif -> Iiif -> Iiif
 manifestLoaded loadedIiif oldIiif = merge oldIiif loadedIiif
 
 collectionLoaded : Iiif -> Iiif -> Iiif
 collectionLoaded = manifestLoaded
+
+annotationListLoaded : Iiif -> Iiif -> Iiif
+annotationListLoaded = manifestLoaded
 
 ---------------
 -- Image API --
@@ -594,20 +721,20 @@ canvasThumbnailUrl size canvas =
   case canvas.thumbnail of
     Just thumbnail ->resourceUrl FullRegion size NoRotation Default thumbnail
     Nothing -> case canvas.images of
-                  x :: xs -> imageUrl size x
+                  x :: xs -> annotationUrl size x
                   [] -> ""
 
-imageUrl : Size -> Image -> String
-imageUrl size image = imageUrlFull FullRegion size NoRotation Default image
+annotationUrl : Size -> Annotation -> String
+annotationUrl size annotation = annotationUrlFull FullRegion size NoRotation Default annotation
 
-imageUrlFull : Region -> Size -> Rotation -> Quality -> Image -> String
-imageUrlFull region size rotation quality image =
-  resourceUrl region size rotation quality image.resource
+annotationUrlFull : Region -> Size -> Rotation -> Quality -> Annotation -> String
+annotationUrlFull region size rotation quality annotation =
+  resourceUrl region size rotation quality annotation.resource
 
 resourceUrl : Region -> Size -> Rotation -> Quality -> Resource -> String
 resourceUrl region size rotation quality resource =
   case resource.service of
-    Nothing -> resource.id
+    Nothing -> Maybe.withDefault "" resource.id
     Just service ->
       imageServiceUrl region size rotation quality "jpg" service
 

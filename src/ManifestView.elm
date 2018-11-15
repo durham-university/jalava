@@ -51,6 +51,7 @@ type Msg  = SetManifest (Maybe ManifestUri)
 
 type OutMsg = LoadManifest ManifestUri
             | LoadCollection CollectionUri
+            | LoadAnnotationList AnnotationListUri
             | CanvasOpened ManifestUri CanvasUri
             | CloseViewer
 
@@ -177,6 +178,7 @@ update msg model =
         |> U.chain (manifestMenu.updater (ManifestMenu.SetCanvas maybeCanvasUri))
         |> U.chain (manifestMenu.updater (ManifestMenu.SetMenuOpen (model.menuModel.open && not manifestChanging)))
         |> U.maybeChain (\(ma, ca) m -> openCanvasInOsd m ma ca) (Maybe.map2 (\x y -> (x, y)) maybeManifestUri maybeCanvasUri)
+        |> U.chain loadOtherContent
         |> U.chain (scrollCanvasLine (not manifestChanging))
     CanvasListMsg canvasListMsg -> canvasList.updater canvasListMsg model
     ManifestMenuMsg manifestMenuMsg -> manifestMenu.updater manifestMenuMsg model
@@ -192,6 +194,23 @@ update msg model =
       in ({model | menuModel = newMenuModel}, Cmd.none, [])
 
 
+loadOtherContent : Model -> (Model, Cmd Msg, List OutMsg)
+loadOtherContent model = 
+  case (model.manifest, model.canvas) of
+    (Just manifestUri, Just canvasUri) ->
+      let
+        manifest = getManifest model.iiif manifestUri
+        outMsgs = getCanvas manifest canvasUri
+                    |> Maybe.map .otherContent
+                    |> Maybe.withDefault []
+                    |> List.filter (\c -> c.contentType == Just "sc:AnnotationList")
+                    |> List.map .id
+                    |> List.map (\uri -> LoadAnnotationList uri)
+      in
+        (model, Cmd.none, outMsgs)
+    _ -> (model, Cmd.none, [])
+
+
 osdNotification : Iiif.Notification -> Model -> (Model, Cmd Msg, List OutMsg)
 osdNotification notification model =
   case model.manifest of
@@ -204,6 +223,7 @@ osdNotification notification model =
               Just canvasUri -> update (SetManifestAndCanvas (Just modelManifestUri) (Just canvasUri)) model
           else (model, Cmd.none, [])
         Iiif.CollectionLoaded collectionUri -> (model, Cmd.none, [])
+        Iiif.AnnotationListLoaded _ -> (model, Cmd.none, [])
     Nothing -> (model, Cmd.none, [])
 
 

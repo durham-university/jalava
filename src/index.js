@@ -41,8 +41,6 @@ var app = Elm.Elm.Main.init({
 var osdViewers = {};
 
 app.ports.osdCmd.subscribe(function (data) {
-  console.log("osdCmd " + JSON.stringify(data));
-
   if (data["type"] == "setSource") {
     var viewerId = data["for"];
     var viewerElem = document.getElementById(viewerId);
@@ -64,7 +62,6 @@ app.ports.osdCmd.subscribe(function (data) {
 });
 
 app.ports.scrollToView.subscribe(function (data) {
-  console.log("scrollToView " + JSON.stringify(data));
   // requestAnimationFrame forces dom updates to happen first
   requestAnimationFrame(function(){
     var container = $(data["container"]);
