@@ -28,7 +28,9 @@ import CollectionTree
 import CollectionView
 import ManifestView
 
-port lazyLoadManifest : (String -> msg) -> Sub msg
+port inPortLazyLoadManifest : (String -> msg) -> Sub msg
+
+port inPortShowAnnotation : (Maybe AnnotationUri -> msg) -> Sub msg
 
 type alias Model =
   { key : Nav.Key
@@ -54,6 +56,7 @@ type Msg
   | IiifMsg Iiif.Loading.Msg
   | IiifNotification Iiif.Loading.Notification
   | AlertMsg Int Alert.Visibility
+  | ShowAnnotation (Maybe AnnotationUri)
 
 type OutMsg
   = LoadCollection CollectionUri
@@ -282,6 +285,10 @@ update msg model =
       (model, Cmd.none, [])
         |> U.chain (manifestView.updater manifestViewMsg)
         |> U.evalOut2 outMsgEvaluator
+    ShowAnnotation maybeAnnotationUri ->
+      (model, Cmd.none, [])
+        |> U.chain (manifestView.updater (ManifestView.ShowAnnotationPort maybeAnnotationUri))
+        |> U.evalOut2 outMsgEvaluator
     IiifMsg iiifMsg ->
       let (newModel, maybeNotification) = Iiif.Loading.update iiifMsg model
       in case maybeNotification of
@@ -296,7 +303,10 @@ update msg model =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions _ = lazyLoadManifest LazyLoadManifest
+subscriptions _ = Sub.batch
+  [ inPortLazyLoadManifest LazyLoadManifest
+  , inPortShowAnnotation ShowAnnotation
+  ]
 
 
 alertDialog : Int -> String -> Html Msg
@@ -325,5 +335,6 @@ view model =
         ]
     , div [ class <| "manifest_view_wrapper" ++ manifestViewHide] [ manifestView.view model ]
     , div [ class "error_overlay" ] (List.indexedMap alertDialog model.errors)
+    , div [ style "display" "none" ] [ div [ id "annotation_overlay_wrapper"] [div [id "annotation_overlay"] []]]
     ]
   }

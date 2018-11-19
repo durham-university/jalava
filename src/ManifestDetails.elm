@@ -2,12 +2,17 @@ module ManifestDetails exposing(..)
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
+import Html.Lazy exposing (lazy, lazy2)
 import Dict
 
+import Utils
 import Iiif.Types exposing(..)
 
 manifestDetails : Manifest -> Html msg
-manifestDetails manifest = manifestDetailsExtras manifest []
+manifestDetails = lazy manifestDetails_
+
+manifestDetails_ : Manifest -> Html msg
+manifestDetails_ manifest = manifestDetailsExtras manifest []
 
 manifestDetailsExtras : Manifest -> List (String, Maybe (Html msg)) -> Html msg
 manifestDetailsExtras manifest extraValues =
@@ -22,7 +27,10 @@ manifestDetailsExtras manifest extraValues =
         Nothing -> []
 
     propertyHtmlText : String -> Maybe String -> List (Html msg)
-    propertyHtmlText label maybeValue = propertyHtml label (Maybe.map text maybeValue)
+    propertyHtmlText label maybeValue = 
+      let sanitised = Maybe.map (\x -> div [] (Utils.sanitiseHtml x)) maybeValue
+      in
+      propertyHtml label sanitised
 
     propertyHtmlLink : String -> String -> Maybe String -> List (Html msg)
     propertyHtmlLink label valueLabel maybeValueUrl =

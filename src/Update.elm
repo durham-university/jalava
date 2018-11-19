@@ -35,6 +35,17 @@ maybeChain updater maybeValue =
     Nothing -> identity
     Just v -> chain (updater v)
 
+maybeChain2 :
+  ( a -> b -> modelA -> (modelA, Cmd msg, List outMsg) ) ->
+  Maybe a ->
+  Maybe b ->
+  ( modelA, Cmd msg, List outMsg) ->
+  ( modelA, Cmd msg, List outMsg)
+maybeChain2 updater maybeValueA maybeValueB =
+  case (maybeValueA, maybeValueB) of
+    (Just valueA, Just valueB) -> chain (updater valueA valueB)
+    _ -> identity
+
 chainIf :
   Bool ->
   ( model -> ( model, Cmd msg, List outMsg ) ) ->

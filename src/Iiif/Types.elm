@@ -104,10 +104,9 @@ type alias AnnotationOn =
   , selector : Maybe Selector
   }
 
-type alias Selector =
-  { selectorType : Maybe String
-  , value : String
-  }
+type Selector = ChoiceSelector { default : Selector, items : List Selector }
+              | FragmentSelector { value : String }
+              | SvgSelector { value : String }
 
 type alias Resource =
   { id : Maybe ResourceUri

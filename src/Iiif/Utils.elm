@@ -1,6 +1,7 @@
 module Iiif.Utils exposing(..)
 
 import Dict exposing(Dict)
+import List.Extra as ListE
 
 import Iiif.Types exposing(..)
 import Iiif.Stubs exposing(..)
@@ -88,3 +89,22 @@ getCanvas manifest canvasUri =
     List.map (findCanvas << .canvases) manifest.sequences
     |> List.filterMap identity 
     |> List.head
+
+getAnnotationLists : Iiif -> List AnnotationListUri -> List AnnotationList
+getAnnotationLists iiif annotationListUris =
+  List.map (getAnnotationList iiif) annotationListUris
+
+getCanvasAnnotationLists : Canvas -> List AnnotationListUri
+getCanvasAnnotationLists canvas =
+  canvas.otherContent
+    |> List.filter (\c -> c.contentType == Just "sc:AnnotationList")
+    |> List.map .id
+
+
+getCanvasAnnotation : Iiif -> Canvas -> AnnotationUri -> Maybe Annotation
+getCanvasAnnotation iiif canvas annotationUri =
+  getCanvasAnnotationLists canvas
+    |> (getAnnotationLists iiif)
+    |> List.map .annotations
+    |> List.concat
+    |> ListE.find (\a -> a.id == Just annotationUri)

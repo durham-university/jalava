@@ -18,7 +18,9 @@ dictInsert obj dict =
 merge : Iiif -> Iiif -> Iiif
 merge  a b =
   {a  | manifests = Dict.foldl (\x -> dictInsert) a.manifests b.manifests
-      , collections = Dict.foldl (\x -> dictInsert) a.collections b.collections }
+      , collections = Dict.foldl (\x -> dictInsert) a.collections b.collections
+      , annotationLists = Dict.foldl (\x -> dictInsert) a.annotationLists b.annotationLists
+      }
 
 addManifest : Manifest -> Iiif -> Iiif
 addManifest manifest iiif = 

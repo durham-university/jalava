@@ -34,7 +34,7 @@ annotationDecoder =
     |> optional "@id" (Decode.nullable Decode.string) Nothing
     |> optional "motivation" jsonLdValueStringDecoder Nothing
     |> required "resource" resourceDecoder
-    |> optional "on" (Decode.nullable annotationOnDecoder) Nothing
+    |> optional "on" (decodeListOrSingleOrNull annotationOnDecoder |> Decode.map List.head) Nothing
 
 
 annotationOnDecoder : Decode.Decoder AnnotationOn
@@ -46,13 +46,29 @@ annotationOnDecoder =
         |> optional "selector" (Decode.map Just annotationSelectorDecoder) Nothing
     ]
 
+requiredValue : String -> Decode.Decoder String -> Decode.Decoder String
+requiredValue expected decoder =
+  let
+    expectMapper : String -> Decode.Decoder String
+    expectMapper x = 
+      if x == expected then Decode.succeed x
+      else Decode.fail ("Expected value " ++ expected)
+  in decoder |> Decode.andThen expectMapper
 
 annotationSelectorDecoder : Decode.Decoder Selector
 annotationSelectorDecoder =
-  Decode.succeed Selector
-    |> optional "@type" (Decode.nullable Decode.string) Nothing
-    |> required "value" (Decode.map (Maybe.withDefault "") jsonLdValueStringDecoder)
-
+  Decode.oneOf 
+    [ Decode.succeed (\_ default items -> ChoiceSelector { default = default, items = items })
+        |> required "@type" (Decode.string |> requiredValue "oa:Choice" |> Decode.map Just)
+        |> required "default" (Decode.lazy (\_ -> annotationSelectorDecoder))
+        |> optional "item" (Decode.lazy (\_ -> decodeListOrSingle annotationSelectorDecoder)) []
+    , Decode.succeed (\_ value -> FragmentSelector { value = value } )
+        |> required "@type" (Decode.string |> requiredValue "oa:FragmentSelector")
+        |> required "value" (jsonLdValueStringDecoder |> Decode.map (Maybe.withDefault ""))
+    , Decode.succeed (\_ value -> SvgSelector { value = value } )
+        |> required "@type" (Decode.string |> requiredValue "oa:SvgSelector")
+        |> required "value" (jsonLdValueStringDecoder |> Decode.map (Maybe.withDefault ""))
+    ]
 
 resourceDecoder : Decode.Decoder Resource
 resourceDecoder = 
@@ -207,7 +223,12 @@ decodeListOrSingle valueDecoder =
     , Decode.list valueDecoder
     ]
 
-
+decodeListOrSingleOrNull : Decode.Decoder a -> Decode.Decoder (List a)
+decodeListOrSingleOrNull valueDecoder =
+  Decode.oneOf
+    [ decodeListOrSingle valueDecoder
+    , Decode.null []
+    ]
 
 
 maybeAttr maybeValue name = case maybeValue of
