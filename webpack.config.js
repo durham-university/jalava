@@ -8,7 +8,14 @@ module.exports = {
   entry: {
     app: [
       './src/index.js'
+    ],
+    uigallery: [
+      './src/uigallery.js'
     ]
+  },
+
+  output : {
+    filename: '[name].js'
   },
 
   devServer: {
