@@ -165,6 +165,9 @@ evalOut2 evaluator (model, cmd, out) =
 ignoreOut : ( model, Cmd msg, List outMsg ) -> ( model, Cmd msg )
 ignoreOut (model, cmd, out) = (model, cmd)
 
+noSideEffects : model -> (model, Cmd msg, List outMsg)
+noSideEffects model = (model, Cmd.none, [])
+
 
 
 type alias Component model msg outMsg =

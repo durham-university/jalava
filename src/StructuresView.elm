@@ -8,6 +8,7 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 
 import Element
+import Element.Lazy as Lazy
 
 import Bootstrap.Grid as Grid
 import Bootstrap.Grid.Row as Row
@@ -29,13 +30,11 @@ import UI.Icon as Icon
 import Element
 
 type alias Model =
-  { iiif : Iiif
-  , manifest : Maybe ManifestUri
+  { manifest : Maybe Manifest
   , canvas : Maybe CanvasUri
-  , errors : List String
   }
 
-type Msg  = SetManifest (Maybe ManifestUri)
+type Msg  = SetManifest (Maybe Manifest)
           | SetCanvas (Maybe CanvasUri)
           | RangeClicked RangeUri
           | IiifNotification Iiif.Loading.Notification
@@ -53,27 +52,32 @@ init flags = (emptyModel, Cmd.none, [])
 
 emptyModel : Model
 emptyModel  = 
-  { iiif = Iiif.Utils.empty
-  , manifest = Nothing
+  { manifest = Nothing
   , canvas = Nothing
-  , errors = []
   }
 
 update : Msg -> Model -> ( Model, Cmd Msg, List OutMsg )
 update msg model =
   case msg of
-    SetManifest maybeManifestUri -> ({model | manifest = maybeManifestUri, canvas = Nothing}, Cmd.none, [])
+    SetManifest maybeManifest -> ({model | manifest = maybeManifest, canvas = Nothing}, Cmd.none, [])
     SetCanvas maybeCanvasUri -> ({model | canvas = maybeCanvasUri}, Cmd.none, [])
     RangeClicked rangeUri -> (model, Cmd.none, [RangeSelected rangeUri])
-    IiifNotification notification -> (model, Cmd.none, [])
+    IiifNotification notification ->
+      case notification of 
+        Iiif.Loading.ManifestLoaded iiif manifestUri -> 
+          if Just manifestUri == Maybe.map .id model.manifest then
+            ({model | manifest = Just <| getManifest iiif manifestUri}, Cmd.none, [])
+          else (model, Cmd.none, [])
+        _ -> (model, Cmd.none, [])
 
 view : Model -> Element.Element Msg
-view model = 
+view model = Lazy.lazy view_ model
+
+view_ : Model -> Element.Element Msg
+view_ model = 
   case model.manifest of
     Nothing -> Element.none
-    Just manifestUri ->
-      let manifest = getManifest model.iiif manifestUri
-      in
+    Just manifest ->
       Tree.empty
         |> Tree.rootItems (getTopRanges manifest)
         |> Tree.label (Element.text << Maybe.withDefault "unnamed" << .label)
@@ -81,30 +85,3 @@ view model =
         |> Tree.selected (List.any (\c -> model.canvas == Just c) << .canvases)
         |> Tree.onPress (Just << RangeClicked << .id)
         |> Tree.tree
-
-{-
-view : Model -> Html Msg
-view model = 
-  let
-    maybeManifest = Maybe.map (getManifest model.iiif) model.manifest
-    topRanges = Maybe.withDefault [] <| Maybe.map getTopRanges maybeManifest
-    rangesHtml = case maybeManifest of
-                  Just manifest -> List.map (rangeHtml model manifest) topRanges
-                  Nothing -> []
-  in
-  Grid.row [ Row.attrs [class "structures_view"] ] [Grid.col [] rangesHtml ]
-
-rangeHtml : Model -> Manifest -> Range -> Html Msg
-rangeHtml model manifest range = 
-  let
-    subRanges = getRanges manifest range.ranges
-    label = Maybe.withDefault "unnamed" range.label
-    selected = List.any (\r -> model.canvas == Just r) range.canvases
-    selectedClass = if selected then " selected" else ""
-  in
-  div [ class ("range_node" ++ selectedClass) ] 
-    [ span [ class "title" ] [ Button.button [ Button.roleLink, Button.attrs [ onClick (RangeClicked range.id)]] [text label] ]
-    , div [class "sub_ranges"] (List.map (rangeHtml model manifest) subRanges)
-    ]
-
--}

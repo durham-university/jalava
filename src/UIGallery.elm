@@ -80,7 +80,7 @@ emptyModel url key =
   , url = url
   , selectedTab = 0
   , collapsible = Collapsible.emptyModel |> Collapsible.id "collapsible_id" |> Collapsible.content (Element.el [Element.padding 15] textParagraphs)
-  , manifestPanel = ManifestPanel.emptyModel |> ManifestPanel.id "manifestPanel_id" |> ManifestPanel.iiif testIiif |> ManifestPanel.manifest testManifest.id
+  , manifestPanel = ManifestPanel.emptyModel |> ManifestPanel.id "manifestPanel_id" |> ManifestPanel.manifest testManifest
   }
 
 parseUrl : Url.Url -> Model -> (Model, Cmd Msg)

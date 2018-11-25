@@ -16,9 +16,9 @@ type Msg
   | AnnotationListLoadedInt AnnotationListUri (Result Http.Error (AnnotationListUri, Iiif))
 
 type Notification
-  = ManifestLoaded ManifestUri
-  | CollectionLoaded CollectionUri
-  | AnnotationListLoaded AnnotationListUri
+  = ManifestLoaded Iiif ManifestUri
+  | CollectionLoaded Iiif CollectionUri
+  | AnnotationListLoaded Iiif AnnotationListUri
 
 httpErrorToString : Http.Error -> String
 httpErrorToString e =
@@ -37,21 +37,21 @@ update msg model =
         Ok (uri, iiif) -> 
          { model | iiif = manifestLoaded iiif model.iiif }
          |> (\m -> if uri == manifestUri then m else {m | iiif = aliasManifest (getManifest m.iiif uri) manifestUri m.iiif} )
-         |> (\m -> (m, Just (ManifestLoaded manifestUri)))
+         |> (\m -> (m, Just (ManifestLoaded m.iiif manifestUri)))
         Err e -> ({ model | errors = model.errors ++ ["Error loading manifest " ++ manifestUri ++ ". " ++ (httpErrorToString e)] }, Nothing)
     CollectionLoadedInt collectionUri res ->
       case res of
         Ok (uri, iiif) -> 
           { model | iiif = collectionLoaded iiif model.iiif }
           |> (\m -> if uri == collectionUri then m else {m | iiif = aliasCollection (getCollection m.iiif uri) collectionUri m.iiif} )
-          |> (\m -> (m, Just (CollectionLoaded collectionUri)))
+          |> (\m -> (m, Just (CollectionLoaded m.iiif collectionUri)))
         Err e -> ({ model | errors = model.errors ++ ["Error loading collection " ++ collectionUri ++ ". " ++ (httpErrorToString e)] }, Nothing)
     AnnotationListLoadedInt annotationListUri res ->
       case res of
         Ok (uri, iiif) -> 
           { model | iiif = annotationListLoaded iiif model.iiif }
           |> (\m -> if uri == annotationListUri then m else {m | iiif = aliasAnnotationList (getAnnotationList m.iiif uri) annotationListUri m.iiif} )
-          |> (\m -> (m, Just (AnnotationListLoaded annotationListUri)))
+          |> (\m -> (m, Just (AnnotationListLoaded m.iiif annotationListUri)))
         Err e -> ({ model | errors = model.errors ++ ["Error loading annotationList " ++ annotationListUri ++ ". " ++ (httpErrorToString e)] }, Nothing)
 
 

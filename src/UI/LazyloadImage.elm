@@ -1,6 +1,7 @@
 module UI.LazyloadImage exposing (..)
 
 import Element exposing(..)
+import Element.Keyed as Keyed
 import Html
 import Html.Attributes
 
@@ -14,4 +15,4 @@ lazyloadImage attrs config =
       , Html.Attributes.alt config.description
       ]
   in
-  Element.el attrs <| Element.html <| Html.img imgAttrs []
+  Keyed.el attrs (config.src, Element.html <| Html.img imgAttrs [])

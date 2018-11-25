@@ -6,6 +6,7 @@ import Json.Encode as Encode
 
 import Html.Attributes
 import Element exposing (..)
+import Element.Lazy as Lazy
 
 import IiifUI.Spinner as Spinner
 import IiifUI.CanvasButton as CanvasButton
@@ -20,15 +21,13 @@ import Iiif.Utils exposing(getManifest, isStub)
 import UriMapper exposing (UriMapper)
 
 type alias Model =
-  { iiif : Iiif
-  , containerId : Maybe String
-  , manifest : Maybe ManifestUri
+  { containerId : Maybe String
+  , manifest : Maybe Manifest
   , sequence : Maybe SequenceUri
   , selectedCanvas : Maybe CanvasUri
-  , errors : List String
   }
 
-type Msg  = SetManifest (Maybe ManifestUri)
+type Msg  = SetManifest (Maybe Manifest)
           | SelectCanvas (Maybe CanvasUri)
           | CanvasClicked CanvasUri
           | ScrollToView CanvasUri Bool
@@ -51,30 +50,36 @@ setContainerId id_ model = {model | containerId = Just id_}
 
 emptyModel : Model
 emptyModel = 
-  { iiif = Iiif.Utils.empty
-  , containerId = Nothing
+  { containerId = Nothing
   , manifest = Nothing
   , sequence = Nothing
   , selectedCanvas = Nothing
-  , errors = []
   }
 
 update : Msg -> Model -> ( Model, Cmd Msg, List OutMsg )
 update msg model =
   case msg of
-    SetManifest maybeManifestUri -> 
-      ({ model | manifest = Maybe.withDefault maybeManifestUri Nothing, selectedCanvas = Nothing }, Cmd.none, [])
+    SetManifest maybeManifest -> 
+      ({ model | manifest = maybeManifest, selectedCanvas = Nothing }, Cmd.none, [])
     SelectCanvas canvasUri -> ({model | selectedCanvas = canvasUri}, Cmd.none, [])
     CanvasClicked canvasUri -> ({model | selectedCanvas = Just canvasUri}, Cmd.none, [CanvasOpened canvasUri])
-    IiifNotification notification -> (model, Cmd.none, [])
+    IiifNotification notification -> 
+      case notification of 
+        Iiif.Loading.ManifestLoaded iiif manifestUri -> 
+          if Just manifestUri == Maybe.map .id model.manifest then
+            ({model | manifest = Just <| getManifest iiif manifestUri}, Cmd.none, [])
+          else (model, Cmd.none, [])
+        _ -> (model, Cmd.none, [])
     ScrollToView canvasUri animate -> scrollToView canvasUri animate model
 
 view : Model -> Element Msg
-view model = 
+view model = Lazy.lazy view_ model
+
+view_ : Model -> Element Msg
+view_ model = 
     case model.manifest of
-      Just manifestUri ->
+      Just manifest ->
         let
-          manifest = getManifest model.iiif manifestUri
           maybeSequence = List.head manifest.sequences
           maybeCanvases = Maybe.map .canvases maybeSequence
           canvases = Maybe.withDefault [] maybeCanvases

@@ -33,43 +33,39 @@ port outPortOsdCmd : Encode.Value -> Cmd msg
 port outPortSetAnnotationsCmd : Encode.Value -> Cmd msg
 
 type alias Model =
-  { iiif : Iiif
-  , manifest : Maybe ManifestUri
+  { manifest : Maybe Manifest
   , canvas : Maybe CanvasUri
   , canvasListModel : CanvasList.Model
-  , annotation : Maybe AnnotationUri
+  , annotation : Maybe Annotation
   , osdElemId : String
   , menuModel : ManifestMenu.Model
-  , errors : List String
-  }
-
-type alias MenuModel =
-  { open : Bool
   }
 
 
-type Msg  = SetManifest (Maybe ManifestUri)
+type Msg  = SetManifest (Maybe Manifest)
           | SetCanvas (Maybe CanvasUri)
-          | SetManifestAndCanvas (Maybe ManifestUri) (Maybe CanvasUri)
+          | SetManifestAndCanvas (Maybe Manifest) (Maybe CanvasUri)
           | CanvasListMsg CanvasList.Msg
           | ManifestMenuMsg ManifestMenu.Msg
           | IiifNotification Iiif.Loading.Notification
           | SetMenuOpen Bool
           | CloseClicked
-          | ShowAnnotationPort (Maybe AnnotationUri)
+          | ShowAnnotationPort Iiif (Maybe AnnotationUri)
+          | SetOverlayInOsd Iiif
 
 type OutMsg = LoadManifest ManifestUri
             | LoadCollection CollectionUri
             | LoadAnnotationList AnnotationListUri
             | CanvasOpened ManifestUri CanvasUri
             | CloseViewer
+            | RequestIiif (Iiif -> Msg)
 
 
 canvasList =
   U.subComponent 
     { component = CanvasList.component 
-    , unwrapModel = \model -> let subModel = model.canvasListModel in {subModel | iiif = model.iiif}
-    , wrapModel = \model subModel -> { model | canvasListModel = { subModel | iiif = Iiif.Utils.empty }, errors = model.errors ++ subModel.errors}
+    , unwrapModel = .canvasListModel
+    , wrapModel = \model subModel -> { model | canvasListModel = subModel }
     , wrapMsg = CanvasListMsg
     , outEvaluator = \msgSub model ->
         case msgSub of
@@ -82,15 +78,14 @@ canvasList =
 manifestMenu = 
   U.subComponent 
     { component = ManifestMenu.component 
-    , unwrapModel = \model -> let subModel = model.menuModel in {subModel | iiif = model.iiif}
-    , wrapModel = \model subModel -> { model | menuModel = { subModel | iiif = Iiif.Utils.empty }, errors = model.errors ++ subModel.errors}
+    , unwrapModel = .menuModel
+    , wrapModel = \model subModel -> { model | menuModel = subModel }
     , wrapMsg = ManifestMenuMsg
     , outEvaluator = \msgSub model ->
         case msgSub of
           ManifestMenu.RangeSelected rangeUri ->
             let
-              maybeManifest = Maybe.map (getManifest model.iiif) model.manifest
-              maybeRange = Maybe.andThen (flip getRange <| rangeUri) maybeManifest
+              maybeRange = Maybe.andThen (flip getRange <| rangeUri) model.manifest
               maybeCanvasUri = Maybe.andThen (List.head) (Maybe.map .canvases maybeRange)
             in
               case maybeCanvasUri of
@@ -99,33 +94,34 @@ manifestMenu =
     }
 
 
-openCanvasInOsd : ManifestUri -> CanvasUri -> Model -> (Model, Cmd Msg, List OutMsg)
-openCanvasInOsd manifestUri canvasUri model = 
+openCanvasInOsd : Model -> (Model, Cmd Msg, List OutMsg)
+openCanvasInOsd model = 
   let
-    manifest = getManifest model.iiif manifestUri
-    maybeCanvas = getCanvas manifest canvasUri
+    maybeCanvas = Maybe.map2 getCanvas model.manifest model.canvas |> Maybe.withDefault Nothing
     maybeSource = Maybe.andThen osdSource maybeCanvas
-    source = Maybe.withDefault "" maybeSource
-    cmd = outPortOsdCmd (Encode.object 
-        [ ("type", Encode.string "setSource")
-        , ("for", Encode.string model.osdElemId)
-        , ("value", Encode.string source)
-        ])
+    maybeCmd = Maybe.map 
+      (\source -> 
+        outPortOsdCmd (Encode.object 
+          [ ("type", Encode.string "setSource")
+          , ("for", Encode.string model.osdElemId)
+          , ("value", Encode.string source)
+          ])
+      ) maybeSource
   in
-    (model, cmd, [CanvasOpened manifestUri canvasUri])
+    case (maybeCmd, Maybe.map .id model.manifest, model.canvas) of 
+      (Just cmd, Just manifestUri, Just canvasUri) -> (model, cmd, [CanvasOpened manifestUri canvasUri])
+      _ -> (model, Cmd.none, [])
 
 
-setOverlayInOsd : ManifestUri -> CanvasUri -> Model -> (Model, Cmd Msg, List OutMsg)
-setOverlayInOsd manifestUri canvasUri model =
+setOverlayInOsd : Iiif -> Model -> (Model, Cmd Msg, List OutMsg)
+setOverlayInOsd iiif model =
   let
-    manifest = getManifest model.iiif manifestUri
-
-    maybeCanvas = getCanvas manifest canvasUri
+    maybeCanvas = Maybe.map2 getCanvas model.manifest model.canvas |> Maybe.withDefault Nothing
 
     annotations : List Annotation
     annotations = maybeCanvas
                     |> Maybe.map getCanvasAnnotationLists
-                    |> Maybe.map (getAnnotationLists model.iiif)
+                    |> Maybe.map (getAnnotationLists iiif)
                     |> Maybe.withDefault []
                     |> List.filter (not << isStub)
                     |> List.concatMap .annotations
@@ -165,55 +161,54 @@ init flags =
 
 emptyModel : Model
 emptyModel  = 
-  { iiif = Iiif.Utils.empty
-  , manifest = Nothing
+  { manifest = Nothing
   , canvas = Nothing
   , canvasListModel = CanvasList.emptyModel
   , annotation = Nothing
   , osdElemId = "manifest_view_osd"
   , menuModel = ManifestMenu.emptyModel
-  , errors = []
   }
 
 update : Msg -> Model -> ( Model, Cmd Msg, List OutMsg )
 update msg model =
   case msg of
-    SetManifest maybeManifestUri -> 
+    SetManifest maybeManifest -> 
       let
         maybeFirstCanvasUri = 
-          Maybe.map (getManifest model.iiif) maybeManifestUri
+          maybeManifest
           |> Maybe.map .sequences |> Maybe.andThen List.head
           |> Maybe.map .canvases |> Maybe.andThen List.head 
           |> Maybe.map .id
       in 
-        update (SetManifestAndCanvas maybeManifestUri maybeFirstCanvasUri) model
+        update (SetManifestAndCanvas maybeManifest maybeFirstCanvasUri) model
     SetCanvas maybeCanvasUri -> update (SetManifestAndCanvas model.manifest maybeCanvasUri) model
-    SetManifestAndCanvas maybeManifestUri maybeCanvasUri ->
+    SetManifestAndCanvas maybeManifest maybeCanvasUri ->
       let
-        needsLoading = Maybe.map (getManifest model.iiif) maybeManifestUri 
+        maybeManifestUri = Maybe.map .id maybeManifest
+        needsLoading = maybeManifest
                         |> Maybe.map isStub
                         |> Maybe.withDefault False
         loadMsg = 
-          if needsLoading then [LoadManifest (Maybe.withDefault "" maybeManifestUri)]
+          if needsLoading then [LoadManifest (Maybe.withDefault "" (Maybe.map .id maybeManifest))]
           else []
-        manifestChanging = model.manifest /= maybeManifestUri
+        manifestChanging = (Maybe.map .id model.manifest) /= maybeManifestUri
       in
-      ({model | manifest = maybeManifestUri, canvas = maybeCanvasUri}, Cmd.none, loadMsg)
-        |> U.chain (canvasList.updater (CanvasList.SetManifest maybeManifestUri))
+      ({model | manifest = maybeManifest, canvas = maybeCanvasUri}, Cmd.none, loadMsg)
+        |> U.chain (canvasList.updater (CanvasList.SetManifest maybeManifest))
         |> U.chain (canvasList.updater (CanvasList.SelectCanvas maybeCanvasUri))
         |> U.chainIf manifestChanging (manifestMenu.updater (ManifestMenu.ResetMenu))
-        |> U.chain (manifestMenu.updater (ManifestMenu.SetManifest maybeManifestUri))
+        |> U.chain (manifestMenu.updater (ManifestMenu.SetManifest maybeManifest))
         |> U.chain (manifestMenu.updater (ManifestMenu.SetCanvas maybeCanvasUri))
         |> U.chain (manifestMenu.updater (ManifestMenu.SetMenuOpen (model.menuModel.open && not manifestChanging)))
-        |> U.maybeChain2 openCanvasInOsd maybeManifestUri maybeCanvasUri
-        |> U.maybeChain2 setOverlayInOsd maybeManifestUri maybeCanvasUri
+        |> U.chain openCanvasInOsd
+        |> U.addOut [RequestIiif SetOverlayInOsd]
         |> U.chain loadOtherContent
         |> U.chain (scrollCanvasLine (not manifestChanging))
     CanvasListMsg canvasListMsg -> canvasList.updater canvasListMsg model
     ManifestMenuMsg manifestMenuMsg -> manifestMenu.updater manifestMenuMsg model
     IiifNotification notification -> 
       (model, Cmd.none, [])
-        |> U.chain (osdNotification notification)
+        |> U.chain (checkIiifNotification notification)
         |> U.chain (canvasList.updater (CanvasList.IiifNotification notification))
     CloseClicked -> (model, Cmd.none, [CloseViewer])
     SetMenuOpen open -> 
@@ -221,15 +216,39 @@ update msg model =
         menuModel = model.menuModel
         newMenuModel = { menuModel | open = open }
       in ({model | menuModel = newMenuModel}, Cmd.none, [])
-    ShowAnnotationPort maybeAnnotationUri -> ( {model | annotation = maybeAnnotationUri}, Cmd.none, [])
+    ShowAnnotationPort iiif maybeAnnotationUri -> 
+      let 
+        maybeCanvas = Maybe.map2 getCanvas model.manifest model.canvas |> Maybe.withDefault Nothing
+        maybeAnnotation = Maybe.map2 (getCanvasAnnotation iiif) maybeCanvas maybeAnnotationUri |> Maybe.withDefault Nothing
+      in ({model | annotation = maybeAnnotation}, Cmd.none, [])
+    SetOverlayInOsd iiif -> setOverlayInOsd iiif model
+
+
+checkIiifNotification : Iiif.Loading.Notification -> Model -> (Model, Cmd Msg, List OutMsg)
+checkIiifNotification notification model =
+  case model.manifest of
+    Just modelManifest ->
+      case notification of
+        Iiif.Loading.ManifestLoaded iiif manifestUri -> 
+          if manifestUri == modelManifest.id then
+            let loadedManifest = getManifest iiif manifestUri
+            in
+            case model.canvas of
+              Nothing -> update (SetManifest (Just loadedManifest)) model
+              Just canvasUri -> update (SetManifestAndCanvas (Just loadedManifest) (Just canvasUri)) model
+          else (model, Cmd.none, [])
+        Iiif.Loading.AnnotationListLoaded iiif annotationListUri -> 
+          (model, Cmd.none, [])
+          |> U.chain (setOverlayInOsd iiif)
+        _ -> (model, Cmd.none, [])
+    Nothing -> (model, Cmd.none, [])
 
 
 loadOtherContent : Model -> (Model, Cmd Msg, List OutMsg)
 loadOtherContent model = 
   case (model.manifest, model.canvas) of
-    (Just manifestUri, Just canvasUri) ->
+    (Just manifest, Just canvasUri) ->
       let
-        manifest = getManifest model.iiif manifestUri
         outMsgs = getCanvas manifest canvasUri
                     |> Maybe.map getCanvasAnnotationLists
                     |> Maybe.withDefault []
@@ -239,54 +258,28 @@ loadOtherContent model =
     _ -> (model, Cmd.none, [])
 
 
-osdNotification : Iiif.Loading.Notification -> Model -> (Model, Cmd Msg, List OutMsg)
-osdNotification notification model =
-  case model.manifest of
-    Just modelManifestUri ->
-      case notification of
-        Iiif.Loading.ManifestLoaded manifestUri -> 
-          if manifestUri == modelManifestUri then
-            case model.canvas of
-              Nothing -> update (SetManifest (Just modelManifestUri)) model
-              Just canvasUri -> update (SetManifestAndCanvas (Just modelManifestUri) (Just canvasUri)) model
-          else (model, Cmd.none, [])
-        Iiif.Loading.CollectionLoaded collectionUri -> (model, Cmd.none, [])
-        Iiif.Loading.AnnotationListLoaded annotationListUri -> 
-          (model, Cmd.none, [])
-          |> U.maybeChain (setOverlayInOsd modelManifestUri) model.canvas
-    Nothing -> (model, Cmd.none, [])
-
-
 titleView : Model -> Element Msg
 titleView model =
-  let
-    maybeManifest = Maybe.map (getManifest model.iiif) model.manifest
-  in
-    case maybeManifest of
-      Just manifest ->
-        row [spacing 5, width fill]
-          [ Button.secondary |> Button.content (TitleLine.iconOnly "arrow-left") |> Button.onPress CloseClicked |> Button.button
-          , el [width fill] (ManifestTitle.empty |> ManifestTitle.manifest manifest |> ManifestTitle.attributes [centerX] |> ManifestTitle.manifestTitle)
-          , Button.secondary |> Button.content (TitleLine.iconOnly "info") |> Button.onPress (SetMenuOpen (not model.menuModel.open)) |> Button.button 
-          ]
-      Nothing -> Element.none
+  case model.manifest of
+    Just manifest ->
+      row [spacing 5, width fill]
+        [ Button.secondary |> Button.content (TitleLine.iconOnly "arrow-left") |> Button.onPress CloseClicked |> Button.button
+        , el [width fill] (ManifestTitle.empty |> ManifestTitle.manifest manifest |> ManifestTitle.attributes [centerX] |> ManifestTitle.manifestTitle)
+        , Button.secondary |> Button.content (TitleLine.iconOnly "info") |> Button.onPress (SetMenuOpen (not model.menuModel.open)) |> Button.button 
+        ]
+    Nothing -> Element.none
 
 view : Model -> Element Msg
 view model = 
-  let
-    maybeManifest = Maybe.map (getManifest model.iiif) model.manifest
-    maybeCanvas = case (maybeManifest, model.canvas) of
-      (Just manifest, Just canvasUri) -> getCanvas manifest canvasUri
-      _ -> Nothing
-    maybeAnnotation = case (maybeCanvas, model.annotation) of
-      (Just canvas, Just annotationUri) -> getCanvasAnnotation model.iiif canvas annotationUri
-      _ -> Nothing
+  let 
+    menuElem =  if model.menuModel.open then el [alignRight, width (px 500), height fill] <| manifestMenu.view model
+                else Element.none
   in
   column [spacing 0, width fill, height fill]
     [ titleView model
     , el 
-      [ inFront <| el [alignRight, width (px 500), padding 15, height shrink] <| annotationView maybeAnnotation
-      , inFront <| el [alignRight, width (px 500), height fill] <| manifestMenu.view model
+      [ inFront <| el [alignRight, width (px 500), padding 15, height shrink] <| annotationView model.annotation
+      , inFront <| menuElem
       , width fill, height fill
       ] (Lazy.lazy osdElement model.osdElemId)
     , canvasList.view model

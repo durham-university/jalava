@@ -16,6 +16,7 @@ import UI.Tree as Tree
 import UI.Icon as Icon
 
 import Element exposing(..)
+import Element.Lazy as Lazy
 
 import Utils exposing(..)
 import Update as U
@@ -83,9 +84,11 @@ isCollectionOpened collection model = isCollectionUriOpened collection.id model
 isCollectionUriOpened : CollectionUri -> Model -> Bool
 isCollectionUriOpened collectionUri model = member collectionUri model.openedCollections
 
-
 view : Model -> Element.Element Msg
-view model = 
+view model = Lazy.lazy view_ model
+
+view_ : Model -> Element.Element Msg
+view_ model = 
   let
     collectionToNode : List CollectionUri -> Collection -> (Collection, List CollectionUri)
     collectionToNode path collection = (collection, collection.id :: path)
@@ -128,7 +131,10 @@ update msg model =
     SelectPath path -> openPath path model
     CollectionClicked path -> 
       openPath path model |> U.addOut [CollectionSelected path]
-    IiifNotification notification -> (model, Cmd.none, [])
+    IiifNotification notification -> 
+      case notification of
+        Iiif.Loading.CollectionLoaded iiif collectionUri -> ({model | iiif = iiif}, Cmd.none, [])
+        _ -> (model, Cmd.none, [])
 
 
 openCollection : CollectionUri -> Model -> (Model, Cmd Msg, List OutMsg)

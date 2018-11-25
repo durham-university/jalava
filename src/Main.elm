@@ -21,7 +21,7 @@ import Utils exposing(..)
 
 import Iiif.Types exposing(..)
 import Iiif.Loading exposing(loadManifest, loadCollection, loadAnnotationList)
-import Iiif.Utils
+import Iiif.Utils exposing(getManifest)
 import UriMapper exposing (UriMapper)
 import Update as U
 
@@ -68,13 +68,16 @@ type OutMsg
   | CanvasSelected ManifestUri CanvasUri
   | CanvasOpened ManifestUri CanvasUri
   | CloseViewer
+  | RequestIiif (Iiif -> Msg)
 
 
 collectionTree =
   U.subComponent 
     { component = CollectionTree.component 
-    , unwrapModel = \model -> let subModel = model.collectionTreeModel in {subModel | iiif = model.iiif}
-    , wrapModel = \model subModel -> { model | collectionTreeModel = { subModel | iiif = Iiif.Utils.empty }, errors = model.errors ++ subModel.errors}
+    , unwrapModel = \model -> model.collectionTreeModel
+    , wrapModel = \model subModel -> 
+        if List.isEmpty subModel.errors then { model | collectionTreeModel = subModel }
+        else {model | collectionTreeModel = { subModel | errors = []}, errors = model.errors ++ subModel.errors }
     , wrapMsg = CollectionTreeMsg
     , outEvaluator = \msgSub model ->
         case msgSub of
@@ -100,8 +103,8 @@ collectionView =
 manifestView = 
   U.subComponent 
     { component = ManifestView.component 
-    , unwrapModel = \model -> let subModel = model.manifestViewModel in {subModel | iiif = model.iiif}
-    , wrapModel = \model subModel -> { model | manifestViewModel = { subModel | iiif = Iiif.Utils.empty }, errors = model.errors ++ subModel.errors}
+    , unwrapModel = .manifestViewModel
+    , wrapModel = \model subModel -> { model | manifestViewModel = subModel }
     , wrapMsg = ManifestViewMsg
     , outEvaluator = \msgSub model ->
         case msgSub of
@@ -110,6 +113,7 @@ manifestView =
           ManifestView.LoadAnnotationList uri -> (model, Cmd.none, [LoadAnnotationList uri])
           ManifestView.CanvasOpened manifestUri canvasUri -> (model, Cmd.none, [CanvasOpened manifestUri canvasUri])
           ManifestView.CloseViewer -> (model, Cmd.none, [CloseViewer])
+          ManifestView.RequestIiif iiifMsg -> (model, Cmd.none, [RequestIiif (ManifestViewMsg << iiifMsg)])
     }
 
 
@@ -171,7 +175,7 @@ parseUrl url model =
   in
     collectionTree.updater (CollectionTree.SelectPath path) newModel
       |> U.chain (collectionView.updater (CollectionView.SetCollection (List.head path)))
-      |> U.chain (manifestView.updater (ManifestView.SetManifestAndCanvas selectedManifest selectedCanvas))
+      |> U.chain (manifestView.updater (ManifestView.SetManifestAndCanvas (Maybe.map (getManifest model.iiif) selectedManifest) selectedCanvas))
 
 
 
@@ -184,7 +188,7 @@ updateUrl model =
       |> List.map model.uriMapper.deflate
       |> String.join "/"
     viewManifest = 
-      [model.manifestViewModel.manifest, model.manifestViewModel.canvas]
+      [Maybe.map .id model.manifestViewModel.manifest, model.manifestViewModel.canvas]
       |> List.filterMap identity
       |> List.map model.uriMapper.deflate
       |> String.join "/"
@@ -238,11 +242,11 @@ outMsgEvaluator msg model =
         |> U.chain2 updateUrl
         |> U.evalOut2 outMsgEvaluator
     ManifestSelected uri ->
-        manifestView.updater (ManifestView.SetManifest (Just uri)) {model | screen = Viewer}
+        manifestView.updater (ManifestView.SetManifest (Just <| getManifest model.iiif uri)) {model | screen = Viewer}
         |> U.chain2 updateUrl
         |> U.evalOut2 outMsgEvaluator
     CanvasSelected manifestUri canvasUri -> 
-        manifestView.updater (ManifestView.SetManifestAndCanvas (Just manifestUri) (Just canvasUri)) {model | screen = Viewer}
+        manifestView.updater (ManifestView.SetManifestAndCanvas (Just <| getManifest model.iiif manifestUri) (Just canvasUri)) {model | screen = Viewer}
         |> U.chain2 updateUrl
         |> U.evalOut2 outMsgEvaluator
     CloseViewer -> 
@@ -253,6 +257,9 @@ outMsgEvaluator msg model =
         (model, Cmd.none, [])
         |> U.chain2 updateUrl
         |> U.evalOut2 outMsgEvaluator
+    RequestIiif iiifMsg ->
+        update (iiifMsg model.iiif) model
+
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -286,7 +293,7 @@ update msg model =
         |> U.evalOut2 outMsgEvaluator
     ShowAnnotation maybeAnnotationUri ->
       (model, Cmd.none, [])
-        |> U.chain (manifestView.updater (ManifestView.ShowAnnotationPort maybeAnnotationUri))
+        |> U.chain (manifestView.updater (ManifestView.ShowAnnotationPort model.iiif maybeAnnotationUri))
         |> U.evalOut2 outMsgEvaluator
     IiifMsg iiifMsg ->
       let (newModel, maybeNotification) = Iiif.Loading.update iiifMsg model
