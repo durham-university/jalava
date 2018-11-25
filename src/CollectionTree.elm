@@ -3,14 +3,19 @@ module CollectionTree exposing(Model, Msg(..), OutMsg(..), component, init, view
 import Set exposing(Set, insert, remove, member)
 import Url
 import Json.Decode as Decode
-import Html exposing (..)
-import Html.Attributes exposing (..)
-import Html.Events exposing (onClick)
+import Html
+import Html.Attributes
+import Html.Events
 import Bootstrap.Button as Button
 
 import Iiif.Types exposing(..)
 import Iiif.Loading
 import Iiif.Utils exposing(getCollection, getCollections, isStub)
+
+import UI.Tree as Tree
+import UI.Icon as Icon
+
+import Element exposing(..)
 
 import Utils exposing(..)
 import Update as U
@@ -34,7 +39,7 @@ type alias Model =
   }
 
 component : U.Component Model Msg OutMsg
-component = { init = init, emptyModel = emptyModel, update = update, view = view }
+component = { init = init, emptyModel = emptyModel, update = update, view = view, subscriptions = \x -> Sub.none }
 
 init : Decode.Value -> ( Model, Cmd Msg, List OutMsg )
 init flags =
@@ -66,8 +71,8 @@ openPath path model =
     |> U.fold openCollection path
 
 
-toggleOpenMessage : Collection -> Model -> Msg
-toggleOpenMessage collection model = 
+toggleOpenMessage : Model -> Collection -> Msg
+toggleOpenMessage model collection = 
   case isCollectionOpened collection model of
     True -> CloseCollection collection.id
     False -> OpenCollection collection.id
@@ -79,45 +84,41 @@ isCollectionUriOpened : CollectionUri -> Model -> Bool
 isCollectionUriOpened collectionUri model = member collectionUri model.openedCollections
 
 
-view : Model -> Html Msg
+view : Model -> Element.Element Msg
 view model = 
-  let collections = getCollections model.iiif model.collections
-  in
-  div [ class "collection_tree"] <|
-    (List.map (collectionTree model []) collections)
-
-collectionTree : Model -> List CollectionUri -> Collection -> Html Msg
-collectionTree model path collection =
-  div [ class "collection_node" ] 
-    [ collectionTitleLine path collection model
-    , case isCollectionOpened collection model of
-        True ->
-          case isStub collection of
-            True -> spinner
-            False -> 
-              let
-                subCollections = getCollections model.iiif collection.collections
-              in
-              div [ class "sub_collections" ] (List.map (collectionTree model (collection.id :: path)) subCollections)
-        False -> span [] []
-    ]
-
-collectionTitleLine : List CollectionUri -> Collection -> Model -> Html Msg
-collectionTitleLine path collection model =
   let
-    fullPath = collection.id :: path
+    collectionToNode : List CollectionUri -> Collection -> (Collection, List CollectionUri)
+    collectionToNode path collection = (collection, collection.id :: path)
+
+    nodeOpen : (Collection, List CollectionUri) -> Bool
+    nodeOpen (collection, path) = isCollectionOpened collection model
+
+    nodeLabel : (Collection, List CollectionUri) -> Element.Element msg
+    nodeLabel (collection, path) = Element.text (Iiif.Utils.toString "" collection)
+
+    nodeIcon : (Collection, List CollectionUri) -> Maybe (Element.Element msg)
+    nodeIcon (collection, path) = 
+      if isCollectionOpened collection model then Just (Icon.icon "folder-open" [])
+      else Just (Icon.icon "folder"[])
+
+    nodeChildren : (Collection, List CollectionUri) -> List (Collection, List CollectionUri)
+    nodeChildren (collection, path) = List.map (collectionToNode path) (getCollections model.iiif collection.collections)
+
+    nodeSelected : (Collection, List CollectionUri) -> Bool
+    nodeSelected (collection, path) = List.head model.selectedCollection == List.head path
   in
-  span [ class <| "title_line" ++ (if List.head model.selectedCollection == Just collection.id then " selected" else "") ] 
-    [ Button.button [ Button.roleLink, Button.attrs [onClick (toggleOpenMessage collection model)] ] 
-      [ if isCollectionOpened collection model then
-          i [ class "icon fas fa-folder-open"] []
-        else
-          i [ class "icon fas fa-folder"] []
-      ]
-    , Button.button [ Button.roleLink, Button.attrs [onClick (CollectionClicked fullPath)]]
-      [ span [ class "title" ] [ text <| Maybe.withDefault "Unnamed Collection" collection.label ]
-      ]
-    ]
+  Tree.empty
+    |> Tree.attributes [height fill]
+    |> Tree.rootItems (List.map (collectionToNode []) (getCollections model.iiif model.collections))
+    |> Tree.label nodeLabel
+    |> Tree.icon nodeIcon
+    |> Tree.children nodeChildren
+    |> Tree.selected nodeSelected
+    |> Tree.open nodeOpen
+    |> Tree.onPress (Just << CollectionClicked << Tuple.second)
+    |> Tree.onPressIcon (Just << (toggleOpenMessage model) << Tuple.first)
+    |> Tree.tree
+
 
 update : Msg -> Model -> ( Model, Cmd Msg, List OutMsg )
 update msg model =
@@ -143,7 +144,6 @@ openCollection uri model =
       |> U.mapModel (setCollectionUriOpen uri True)
       |> loadCollection
     
-
 
 setCollectionOpen :  Collection -> Bool -> Model -> Model
 setCollectionOpen collection value model =

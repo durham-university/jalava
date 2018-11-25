@@ -3,20 +3,19 @@ port module ManifestMenu exposing(Model, Msg(..), OutMsg(..), init, view, update
 import Url
 import Json.Decode as Decode
 import Json.Encode as Encode
-import Html exposing (..)
-import Html.Attributes exposing (..)
-import Html.Events exposing (onClick)
+import Html
+import Html.Attributes
 
-import Bootstrap.Grid as Grid
-import Bootstrap.Grid.Row as Row
-import Bootstrap.Grid.Col as Col
-import Bootstrap.Button as Button
-import Bootstrap.Tab as Tab
+import Element exposing(..)
+import Element.Background as Background
+import UI.Tabs as Tabs
+import UI.Colors as Colors
+import IiifUI.IiifLink as IiifLink
+import IiifUI.ManifestDetails as ManifestDetails
 
 import Update as U
-import Utils exposing(iiifLink, pluralise)
+import Utils exposing(pluralise)
 
-import ManifestDetails exposing(..)
 import StructuresView
 
 import Iiif.Types exposing(..)
@@ -28,16 +27,18 @@ type alias Model =
   , manifest : Maybe ManifestUri
   , canvas : Maybe CanvasUri
   , open : Bool
-  , tabState : Tab.State
+  , tabState : OpenTab
   , structuresViewModel : StructuresView.Model
   , errors : List String
   }
+
+type OpenTab = TabInfo | TabToc | TabLayers
 
 type Msg  = SetManifest (Maybe ManifestUri)
           | SetCanvas (Maybe CanvasUri)
           | SetMenuOpen Bool
           | ResetMenu
-          | TabMsg Tab.State
+          | SelectTab OpenTab
           | StructuresViewMsg StructuresView.Msg
           | IiifNotification Iiif.Loading.Notification
 
@@ -56,7 +57,7 @@ structuresView =
 
 
 component : U.Component Model Msg OutMsg
-component = { init = init, emptyModel = emptyModel, update = update, view = view }
+component = { init = init, emptyModel = emptyModel, update = update, view = view, subscriptions = \x -> Sub.none }
 
 
 init : Decode.Value -> ( Model, Cmd Msg, List OutMsg )
@@ -71,7 +72,7 @@ emptyModel  =
   , manifest = Nothing
   , canvas = Nothing
   , open = False
-  , tabState = Tab.initialState
+  , tabState = TabInfo
   , structuresViewModel = StructuresView.emptyModel
   , errors = []
   }
@@ -80,7 +81,7 @@ update : Msg -> Model -> ( Model, Cmd Msg, List OutMsg )
 update msg model =
   case msg of
     ResetMenu -> 
-      ({model | open = False, tabState = Tab.customInitialState "manifest_view_menu_info"}, Cmd.none, [])
+      ({model | open = False, tabState = TabInfo}, Cmd.none, [])
     SetManifest maybeManifestUri -> 
       ({model | manifest = maybeManifestUri, canvas = Nothing}, Cmd.none, [])
       |> U.chain (structuresView.updater (StructuresView.SetManifest maybeManifestUri))
@@ -88,20 +89,46 @@ update msg model =
       ({model | canvas = maybeCanvasUri}, Cmd.none, [])
       |> U.chain (structuresView.updater (StructuresView.SetCanvas maybeCanvasUri))
     SetMenuOpen open -> ({model | open = open}, Cmd.none, [])
-    TabMsg state -> ({model | tabState = state}, Cmd.none, [])
+    SelectTab state -> ({model | tabState = state}, Cmd.none, [])
     StructuresViewMsg structuresViewMsg -> structuresView.updater structuresViewMsg model
     IiifNotification notification -> (model, Cmd.none, [])
 
-
-view : Model -> Html Msg
+view : Model -> Element.Element Msg
 view model = 
+  if model.open then viewOpen model
+  else Element.none
+
+viewOpen : Model -> Element.Element Msg
+viewOpen model = 
   let
-    maybeManifest = Maybe.map (getManifest model.iiif) model.manifest
     showClass = if model.open then " show" else ""
-    maybeInfo = Maybe.map (\m -> manifestDetailsExtras m [("IIIF", Just (iiifLink m.id))]) maybeManifest 
-    info = Maybe.withDefault (text "") maybeInfo
+    maybeManifest = Maybe.map (getManifest model.iiif) model.manifest
+    tabContent = case model.tabState of
+      TabInfo -> 
+        case maybeManifest of
+          Just manifest -> ManifestDetails.empty 
+                            |> ManifestDetails.manifest manifest
+                            |> ManifestDetails.includeIiifLink
+                            |> ManifestDetails.manifestDetails
+                            |> Element.el [padding 5, width fill] 
+          Nothing -> Element.none
+      TabToc -> structuresView.view model
+      TabLayers -> Element.text "Layers tab"
   in
-  div [ class ("manifest_view_menu" ++ showClass) ]
+  Element.column [spacing 5, width fill, height fill, Background.color Colors.defaultBackground]
+    [ Tabs.default
+        |> Tabs.content 
+            [ (TabInfo, Element.text "Info")
+            , (TabToc, Element.text "ToC")
+            , (TabLayers, Element.text "Layers")
+            ]
+        |> Tabs.selected model.tabState
+        |> Tabs.onPress SelectTab
+        |> Tabs.tabs
+    , Element.el [height fill] tabContent
+    ]
+  
+{-  
     [ Tab.config TabMsg
       |> Tab.items
         [ Tab.item 
@@ -122,3 +149,4 @@ view model =
         ]
       |> Tab.view model.tabState
     ]
+-}

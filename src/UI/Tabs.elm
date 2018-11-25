@@ -55,8 +55,10 @@ tabs config =
             [ paddingEach { top = config.paddingV + 1, bottom = config.paddingV, left = config.paddingH + 1, right = config.paddingH + 1 }
             , Font.color config.baseColor
             , Border.widthEach { bottom = 1, top = 0, left = 0, right = 0}
+            , Border.roundEach { topLeft = 5, topRight = 5, bottomLeft = 0, bottomRight = 0}
             , Border.color Colors.divider
             , focused [Border.shadow { offset=(0.0, 0.0), size=0.0, blur=0.0, color = rgb 0.0 0.0 0.0}]
+            , mouseOver [ config.baseColor |> C.desaturate 0.9 |> Background.color ]
             ]) {label = e, onPress = pressHandler key}
     filler = 
       el 

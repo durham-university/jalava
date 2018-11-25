@@ -12,14 +12,17 @@ import Element.Border as Border
 import Element.Background as Background
 import Element.Font as Font
 import Element.Input as Input
+import Element.Events as Events
 
 type alias TreeConfig itemType msg =
   { rootItems : List itemType
   , itemChildren : itemType -> List itemType
   , itemOpen : itemType -> Bool
   , itemLabel : itemType -> Element msg
+  , itemIcon : itemType -> Maybe (Element msg)
   , itemSelected : itemType -> Bool
   , onPress : itemType -> Maybe msg
+  , onPressIcon : itemType -> Maybe msg
   , baseColor : Color
   , selectColor : Maybe Color
   , padding : Int
@@ -33,8 +36,10 @@ empty =
   , itemChildren = \_ -> []
   , itemOpen = \_ -> True
   , itemLabel = \_ -> Element.none
+  , itemIcon = \_ -> Nothing
   , itemSelected = \_ -> False
   , onPress = \_ -> Nothing
+  , onPressIcon = \_ -> Nothing
   , baseColor = Colors.primary
   , selectColor = Nothing
   , padding = 10
@@ -75,11 +80,17 @@ open f config = { config | itemOpen = f }
 label : (itemType -> Element msg ) -> TreeConfig itemType msg -> TreeConfig itemType msg
 label f config = { config | itemLabel = f }
 
+icon : (itemType -> Maybe (Element msg) ) -> TreeConfig itemType msg -> TreeConfig itemType msg
+icon f config = { config | itemIcon = f }
+
 selected : (itemType -> Bool ) -> TreeConfig itemType msg -> TreeConfig itemType msg
 selected f config = { config | itemSelected = f }
 
 onPress : (itemType -> Maybe msg) -> TreeConfig itemType msg -> TreeConfig itemType msg
 onPress f config = {config | onPress = f}
+
+onPressIcon : (itemType -> Maybe msg) -> TreeConfig itemType msg -> TreeConfig itemType msg
+onPressIcon f config = {config | onPressIcon = f}
 
 
 treeNode : TreeConfig itemType msg -> Int -> itemType -> List (Element msg)
@@ -103,14 +114,20 @@ treeNode config totalIndent node =
           ]
     borderAttrs = if List.head config.rootItems == Just node then []
                   else [ Border.widthEach {bottom = 0, left = 0, right = 0, top = 1} ]
+
+    iconButton = case config.itemIcon node of
+                  Just icon_ -> Input.button [] { onPress = config.onPressIcon node, label = icon_ }
+                  Nothing -> Element.none
+    labelButton = Input.button [] {onPress = config.onPress node, label = config.itemLabel node}
   in
-  [ Input.button 
+  [ row
       ( [ paddingEach {left = config.padding + totalIndent, top = config.padding, bottom = config.padding, right = config.padding}
         , width fill
         , Border.color Colors.divider
         , focused [Border.shadow { offset=(0.0, 0.0), size=0.0, blur=0.0, color = rgb 0.0 0.0 0.0}]
+        , spacing 5
         ] ++ selectedAttrs ++ borderAttrs)
-      { onPress = config.onPress node, label = config.itemLabel node }
+      [iconButton, labelButton]
   ] ++ nodeChildren
 
 tree : TreeConfig itemType msg -> Element msg

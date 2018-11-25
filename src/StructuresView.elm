@@ -7,19 +7,26 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 
+import Element
+
 import Bootstrap.Grid as Grid
 import Bootstrap.Grid.Row as Row
 import Bootstrap.Grid.Col as Col
 import Bootstrap.Button as Button
 
 import Update as U
-import Utils exposing(iiifLink, pluralise)
+import Utils exposing(pluralise)
 
 import ManifestDetails exposing(..)
 
 import Iiif.Types exposing(..)
 import Iiif.Loading
 import Iiif.Utils exposing(..)
+
+import UI.Tree as Tree
+import UI.Icon as Icon
+
+import Element
 
 type alias Model =
   { iiif : Iiif
@@ -37,7 +44,7 @@ type OutMsg = RangeSelected RangeUri
 
 
 component : U.Component Model Msg OutMsg
-component = { init = init, emptyModel = emptyModel, update = update, view = view }
+component = { init = init, emptyModel = emptyModel, update = update, view = view, subscriptions = \x -> Sub.none }
 
 
 init : Decode.Value -> ( Model, Cmd Msg, List OutMsg )
@@ -60,7 +67,22 @@ update msg model =
     RangeClicked rangeUri -> (model, Cmd.none, [RangeSelected rangeUri])
     IiifNotification notification -> (model, Cmd.none, [])
 
+view : Model -> Element.Element Msg
+view model = 
+  case model.manifest of
+    Nothing -> Element.none
+    Just manifestUri ->
+      let manifest = getManifest model.iiif manifestUri
+      in
+      Tree.empty
+        |> Tree.rootItems (getTopRanges manifest)
+        |> Tree.label (Element.text << Maybe.withDefault "unnamed" << .label)
+        |> Tree.children (getRanges manifest << .ranges)
+        |> Tree.selected (List.any (\c -> model.canvas == Just c) << .canvases)
+        |> Tree.onPress (Just << RangeClicked << .id)
+        |> Tree.tree
 
+{-
 view : Model -> Html Msg
 view model = 
   let
@@ -84,3 +106,5 @@ rangeHtml model manifest range =
     [ span [ class "title" ] [ Button.button [ Button.roleLink, Button.attrs [ onClick (RangeClicked range.id)]] [text label] ]
     , div [class "sub_ranges"] (List.map (rangeHtml model manifest) subRanges)
     ]
+
+-}

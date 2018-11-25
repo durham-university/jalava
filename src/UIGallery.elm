@@ -7,9 +7,16 @@ import Url
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Set exposing(Set)
+import Dict exposing(Dict)
+
+import Iiif.Types exposing(..)
+import Iiif.Stubs exposing(..)
+import Iiif.Utils
+import Iiif.InternalUtils
 
 import Element
 import Element.Border as Border
+import Update as U
 
 import UI.Button as Button
 import UI.Panel as Panel
@@ -22,6 +29,9 @@ import UI.Tabs as Tabs
 import UI.Colors as Colors
 import UI.Collapsible as Collapsible
 
+import IiifUI.ManifestDetails as ManifestDetails
+import IiifUI.ManifestPanel as ManifestPanel
+
 import UI.ColorUtils as C
 
 type alias Model =
@@ -29,13 +39,23 @@ type alias Model =
   , url : Url.Url
   , selectedTab : Int
   , collapsible : Collapsible.Model
+  , manifestPanel : ManifestPanel.Model
   }
 
 type Msg = LinkClicked Browser.UrlRequest
          | UrlChanged Url.Url
          | SelectTab Int
          | CollapsibleMsg Collapsible.Msg
+         | ManifestPanelMsg ManifestPanel.Msg
 
+collapsible = 
+  U.subComponent 
+    { component = Collapsible.component 
+    , unwrapModel = .collapsible
+    , wrapModel = \model subModel -> { model | collapsible = subModel }
+    , wrapMsg = CollapsibleMsg
+    , outEvaluator = \msgSub model -> (model, Cmd.none, [])
+    }
 
 main : Program Decode.Value Model Msg
 main =
@@ -59,7 +79,8 @@ emptyModel url key =
   { key = key
   , url = url
   , selectedTab = 0
-  , collapsible = Collapsible.emptyModel "collapsible_id" |> Collapsible.content (Element.el [Element.padding 15] textParagraphs)
+  , collapsible = Collapsible.emptyModel |> Collapsible.id "collapsible_id" |> Collapsible.content (Element.el [Element.padding 15] textParagraphs)
+  , manifestPanel = ManifestPanel.emptyModel |> ManifestPanel.id "manifestPanel_id" |> ManifestPanel.iiif testIiif |> ManifestPanel.manifest testManifest.id
   }
 
 parseUrl : Url.Url -> Model -> (Model, Cmd Msg)
@@ -91,14 +112,19 @@ update msg model =
       in
         ({model | selectedTab = tab}, Nav.pushUrl model.key (Url.toString newUrl))
     CollapsibleMsg collapsibleMsg ->
+      (model, Cmd.none, []) |> U.chain (collapsible.updater collapsibleMsg) |> U.ignoreOut
+    ManifestPanelMsg manifestPanelMsg ->
       let
-        (newCollapsible, collapsibleCmd) = Collapsible.update collapsibleMsg model.collapsible
+        (newManifestPanel, manifestPanelCmd, outMsg) = ManifestPanel.update manifestPanelMsg model.manifestPanel
       in
-        ({model | collapsible = newCollapsible}, Cmd.map CollapsibleMsg collapsibleCmd)
+        ({model | manifestPanel = newManifestPanel}, Cmd.map ManifestPanelMsg manifestPanelCmd)
 
 
 subscriptions : Model -> Sub Msg
-subscriptions model = Sub.map CollapsibleMsg (Collapsible.subscriptions model.collapsible)
+subscriptions model = Sub.batch 
+      [ Sub.map CollapsibleMsg (Collapsible.subscriptions model.collapsible)
+      , Sub.map ManifestPanelMsg (ManifestPanel.subscriptions model.manifestPanel)
+      ]
 
 
 
@@ -106,7 +132,7 @@ view : Model -> Browser.Document Msg
 view model =
   { title = "Elm IIIF"
   , body = 
-      [ Element.layout [Element.padding 30] <| 
+      [ Element.layoutWith { options = [ Element.focusStyle { borderColor = Nothing, backgroundColor = Nothing, shadow = Nothing }] } [Element.padding 30] <| 
           Element.column [ Element.spacing 10, Element.width Element.fill ]
             [ tabs model 
             , Maybe.withDefault Element.none <| tabElement model model.selectedTab
@@ -122,6 +148,8 @@ tabContent =
   , (TitleLine.simple "DefinitionList", definitionList)
   , (TitleLine.simple "Tree", trees)
   , (TitleLine.simple "Collapsible", Element.none)
+  , (TitleLine.simple "Manifest Details", manifestDetails)
+  , (TitleLine.simple "Manifest Panel", Element.none)
   ]
 
 
@@ -134,8 +162,9 @@ tabElement model index =
         [] -> Nothing
         x :: xs -> finder xs (i - 1)
   in 
-    if index == 5 then Just (collapsible model)
-    else finder tabContent index
+    if index == 5 then Just (collapsibleView model)
+    else  if index == 7 then Just (manifestPanel model)
+          else finder tabContent index
 
 
 tabs : Model -> Element.Element Msg
@@ -239,7 +268,7 @@ tree treeConfig =
 trees : Element.Element msg
 trees =
   Element.row [Element.spacing 30]
-    [ tree Tree.empty
+    [ tree (Tree.empty |> Tree.icon (\_ -> Just <| Icon.icon "folder" []))
     , tree (Tree.empty |> Tree.color Colors.secondary )
     , tree (Tree.empty |> Tree.color Colors.defaultTextColor |> Tree.selectColor Colors.primary )
     ]
@@ -250,11 +279,76 @@ textParagraphs =
     [ textParagraph, textParagraph ]
 
 textParagraph : Element.Element msg
-textParagraph = Element.paragraph [] [Element.text "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam iaculis suscipit arcu ut accumsan. Aenean nec dolor aliquam dui tristique malesuada egestas eget risus. Vivamus dapibus nibh ut orci pretium mollis. Fusce lacinia eros id libero hendrerit volutpat. Nullam lobortis lacus a ultricies pulvinar. Cras placerat egestas porttitor."]
+textParagraph = Element.paragraph [] [Element.text loremIpsum]
 
-collapsible : Model -> Element.Element Msg
-collapsible model =
+loremIpsum : String
+loremIpsum = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam iaculis suscipit arcu ut accumsan. Aenean nec dolor aliquam dui tristique malesuada egestas eget risus. Vivamus dapibus nibh ut orci pretium mollis. Fusce lacinia eros id libero hendrerit volutpat. Nullam lobortis lacus a ultricies pulvinar. Cras placerat egestas porttitor."
+
+collapsibleView : Model -> Element.Element Msg
+collapsibleView model =
   Panel.default |> Panel.header (TitleLine.simple "Default panel") 
-                |> Panel.addNonPaddedSection (Collapsible.collapsible model.collapsible)
+                |> Panel.addDirectSection (Collapsible.view model.collapsible)
                 |> Panel.footer (Collapsible.toggleButton model.collapsible)
                 |> Panel.width (Element.px 500) |> Panel.panel |> Element.map CollapsibleMsg
+
+
+manifestDetails : Element.Element msg
+manifestDetails =
+  ManifestDetails.empty
+    |> ManifestDetails.manifest testManifest
+    |> ManifestDetails.includeIiifLink
+    |> ManifestDetails.manifestDetails
+
+
+manifestPanel : Model -> Element.Element Msg
+manifestPanel model =
+  model.manifestPanel |> ManifestPanel.view |> Element.map ManifestPanelMsg
+
+testIiif : Iiif
+testIiif = Iiif.Utils.empty |> Iiif.InternalUtils.addManifest testManifest
+
+testManifest : Manifest
+testManifest =
+  let
+    thumbnail : Resource
+    thumbnail =
+      { id = Just "test_canvas_small.jpg"
+      , resourceType = Nothing
+      , format = Just "image/jpeg"
+      , width = Just 54
+      , height = Just 60
+      , service = Nothing
+      , chars = Nothing
+      , label = Nothing
+      }
+
+    canvas : Canvas
+    canvas = 
+      { id = "http://www.example.com/canvas"
+      , label = Just "test"
+      , width = 54
+      , height = 60
+      , images = []
+      , thumbnail = Just thumbnail
+      , otherContent = []
+      }
+
+    sequence : Sequence
+    sequence =  
+      { id = Nothing
+      , label = Just "default"
+      , viewingDirection = Nothing
+      , viewingHint = Nothing
+      , canvases = [ canvas, canvas, canvas, canvas, canvas, canvas ]
+      }
+  in
+    stubManifest "http://www.example.com" (Just "Test manifest") (Just "test_manifest_logo.png")
+      |> \x -> {x | description = Just ("<b>Test formatting</b> " ++ loremIpsum)
+                  , license = Just "All rights reserved"
+                  , attribution = Just "Test attribution"
+                  , metadata = Dict.fromList [("Keywords", ["Test", "UI"]), ("Test metadata", ["Test metadata value"])]
+                  , related = [ManifestLink "http://www.example.com/related" (Just "Related") Nothing Nothing]
+                  , seeAlso = [ManifestLink "http://www.example.com/seeAlsa" (Just "See also") Nothing Nothing]
+                  , status = Full
+                  , sequences = [ sequence ]
+               }

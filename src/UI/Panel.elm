@@ -12,7 +12,7 @@ import Element.Font as Font
 import Element.Input as Input
 
 type SectionContent msg = PaddedContent (Element msg)
-                        | NonPaddedContent (Element msg)
+                        | DirectContent (Element msg)
 
 type alias PanelConfig msg =
   { header: Maybe (Element msg)
@@ -118,7 +118,7 @@ panelSection config counter content_ =
   in
     case content_ of
       PaddedContent e -> Element.el (commonAttrs ++ [padding 15]) e
-      NonPaddedContent e -> Element.el commonAttrs e
+      DirectContent e -> e
 
 
 attributes : List (Attribute msg) -> PanelConfig msg -> PanelConfig msg
@@ -142,8 +142,8 @@ content content_ config = {config | sections = [PaddedContent content_]}
 addSection : Element msg -> PanelConfig msg -> PanelConfig msg
 addSection content_ config = {config | sections = config.sections ++ [PaddedContent content_]}
 
-addNonPaddedSection : Element msg -> PanelConfig msg -> PanelConfig msg
-addNonPaddedSection content_ config = {config | sections = config.sections ++ [NonPaddedContent content_]}
+addDirectSection : Element msg -> PanelConfig msg -> PanelConfig msg
+addDirectSection content_ config = {config | sections = config.sections ++ [DirectContent content_]}
 
 sections : List (SectionContent msg) -> PanelConfig msg -> PanelConfig msg
 sections sections_ config = {config | sections = sections_}

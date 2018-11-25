@@ -78,4 +78,4 @@ definitionListTable config =
         }
       ]
   in
-    table textBody {data = config.items, columns = columns}
+    table ([width fill] ++ textBody) {data = config.items, columns = columns}

@@ -9,12 +9,13 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import Set exposing(Set)
 
-import Html exposing (..)
-import Html.Attributes exposing (..)
-import Bootstrap.Grid as Grid
-import Bootstrap.Grid.Row as Row
-import Bootstrap.Grid.Col as Col
-import Bootstrap.Alert as Alert
+import Html
+import Html.Attributes
+
+import Element exposing(..)
+import UI.Toast as Toast
+import UI.TitleLine as TitleLine
+import UI.Screen exposing(screenWith)
 
 import Utils exposing(..)
 
@@ -55,7 +56,7 @@ type Msg
   | ManifestViewMsg ManifestView.Msg
   | IiifMsg Iiif.Loading.Msg
   | IiifNotification Iiif.Loading.Notification
-  | AlertMsg Int Alert.Visibility
+  | CloseError Int
   | ShowAnnotation (Maybe AnnotationUri)
 
 type OutMsg
@@ -269,10 +270,8 @@ update msg model =
     UrlChanged url -> 
       if url == model.url then (model, Cmd.none)
       else parseUrl url model |> U.evalOut2 outMsgEvaluator
-    AlertMsg index visibility->
-      if visibility == Alert.closed then
-        ({model | errors = arrayRemove index model.errors}, Cmd.none)
-      else (model, Cmd.none)
+    CloseError index ->
+      ({model | errors = arrayRemove index model.errors}, Cmd.none)
     CollectionTreeMsg collectionTreeMsg ->
       (model, Cmd.none, [])
         |> U.chain (collectionTree.updater collectionTreeMsg)
@@ -303,38 +302,44 @@ update msg model =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions _ = Sub.batch
+subscriptions model = Sub.batch
   [ inPortLazyLoadManifest LazyLoadManifest
   , inPortShowAnnotation ShowAnnotation
+  , collectionTree.subscriptions model
+  , collectionView.subscriptions model
+  , manifestView.subscriptions model
   ]
 
 
-alertDialog : Int -> String -> Html Msg
-alertDialog index message = 
-  Alert.config
-    |> Alert.danger
-    |> Alert.dismissable (AlertMsg index)
-    |> Alert.children [text message]
-    |> Alert.view Alert.shown
-
 view : Model -> Browser.Document Msg
 view model =
-  let
-    browserHide = if model.screen == Browser then "" else " hide"
-    manifestViewHide = if model.screen == Viewer then "" else " hide"
+  let layoutOptions = { options = [ focusStyle { borderColor = Nothing, backgroundColor = Nothing, shadow = Nothing }] }
   in
   { title = "Elm IIIF"
   , body = 
-    [ div [ class <| "manifest_browser_wrapper" ++ browserHide]
-        [ Grid.containerFluid [] 
-          [ Grid.row []
-            [ Grid.col [ Col.xs4, Col.attrs [ class "col_collection_tree" ] ] [ collectionTree.view model ]
-            , Grid.col [ Col.xs8, Col.attrs [ class "col_collection_view" ] ] [ collectionView.view model ]
-            ]
-          ]
-        ]
-    , div [ class <| "manifest_view_wrapper" ++ manifestViewHide] [ manifestView.view model ]
-    , div [ class "error_overlay" ] (List.indexedMap alertDialog model.errors)
-    , div [ style "display" "none" ] [ div [ id "annotation_overlay_wrapper"] [div [id "annotation_overlay"] []]]
+    [ Element.layoutWith layoutOptions
+        [ inFront <| screenWith layoutOptions (model.screen == Browser) (browserView model)
+        , inFront <| screenWith layoutOptions (model.screen == Viewer) (manifestView.view model)
+        , inFront <| errorsView model
+        , width fill, height fill
+        ] Element.none
+    , Html.div [ Html.Attributes.style "display" "none" ] [ Html.div [ Html.Attributes.id "annotation_overlay_wrapper"] [Html.div [Html.Attributes.id "annotation_overlay"] []]]
     ]
   }
+
+browserView : Model -> Element Msg
+browserView model =
+  row [spacing 0, width fill, height fill]
+    [ el [width (fillPortion 1), height fill, scrollbars] (collectionTree.view model)
+    , el [width (fillPortion 3), height fill, padding 10, scrollbarY] (collectionView.view model)
+    ]
+
+errorsView : Model -> Element Msg
+errorsView model =
+  let
+    errorToast index content =
+      Toast.error |> Toast.content (TitleLine.simple content) |> Toast.onClose (CloseError index) |> Toast.toast  
+  in
+    if List.length model.errors > 0 then
+      Element.column [paddingEach {top = 15, left = 15, right = 15, bottom = 0}, spacing 5, width fill] (List.indexedMap errorToast model.errors)
+    else Element.none

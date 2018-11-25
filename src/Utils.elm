@@ -4,6 +4,9 @@ import Iiif.Types
 
 import Html exposing(Html)
 import Html.Attributes
+import Regex
+
+import Element exposing (Element, height, width, px)
 
 import XmlParser exposing (..)
 import VirtualDom as Dom
@@ -23,11 +26,6 @@ arrayRemove index list =
     (_, x :: xs) -> x :: (arrayRemove (index - 1) xs)
 
 
-iiifLink : Iiif.Types.Uri -> Html msg
-iiifLink uri =
-  Html.a [ Html.Attributes.href uri, Html.Attributes.class "iiif_link" ] []
-
-
 pluralise : Int -> String -> String -> String
 pluralise count singular plural =
   case count of
@@ -39,9 +37,12 @@ wrapKey : ( {a | id: String} -> b ) -> ( {a | id: String} -> ( String, b ) )
 wrapKey f = \o -> (o.id, f o)
 
 
-spinner : Html msg
-spinner = Html.img [ Html.Attributes.src "spinner.gif", Html.Attributes.class "spinner"] []
-
+sanitiseId : String -> String
+sanitiseId s = 
+  let 
+    re = Maybe.withDefault Regex.never (Regex.fromString "[^a-z0-9]+")
+  in
+    Regex.replace re (\_ -> "_") s
 
 sanitiseHtml : String -> List (Html msg)
 sanitiseHtml string =

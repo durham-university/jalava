@@ -21,6 +21,9 @@ warning = normalize 1.0 (rgb 1.0 0.9 0.1)
 link : Color
 link = primary
 
+defaultBackground : Color
+defaultBackground = rgb 1.0 1.0 1.0
+
 lightBg : Color
 lightBg = rgb 0.9 0.9 0.9
 
@@ -29,3 +32,6 @@ divider = rgb 0.8 0.8 0.8
 
 defaultTextColor : Color
 defaultTextColor = rgb 0.2 0.2 0.2
+
+dimTextColor : Color
+dimTextColor = rgb 0.4 0.4 0.4

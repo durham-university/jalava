@@ -1,27 +1,20 @@
-module ManifestList exposing(Model, Msg(..), OutMsg(..), init, view, update, emptyModel, component)
+module ManifestList exposing(Model, Msg(..), OutMsg(..), init, view, update, emptyModel, component, subscriptions)
 
 import Json.Decode as Decode
-import Html exposing (..)
-import Html.Attributes exposing (..)
-import Html.Events exposing (onClick)
-import Html.Keyed as Keyed
 import Regex
-
-import Bootstrap.Grid as Grid
-import Bootstrap.Grid.Row as Row
-import Bootstrap.Grid.Col as Col
-import Bootstrap.Button as Button
-import Bootstrap.Card as Card
-import Bootstrap.Card.Block as Block
-import Bootstrap.ListGroup as ListGroup
+import List.Extra as ListE
 
 import Iiif.Types exposing(..)
 import Iiif.Utils exposing(getManifest, getCollection, isStub, manifestToString)
 import Iiif.Loading
 import Iiif.ImageApi
 
+import Element exposing(..)
+
+import IiifUI.ManifestPanel as ManifestPanel
+
 import ManifestDetails
-import Utils exposing(iiifLink, pluralise, wrapKey)
+import Utils exposing(pluralise, wrapKey)
 import Update as U
 
 
@@ -30,6 +23,7 @@ type alias Model =
   , manifests : List ManifestUri
   , collection : Maybe CollectionUri
   , selectedManifest : Maybe ManifestUri
+  , panelModels : List (ManifestPanel.Model)
   , errors : List String
   }
 
@@ -41,6 +35,7 @@ type Msg = AddManifest ManifestUri
          | ManifestClicked ManifestUri
          | CanvasClicked ManifestUri CanvasUri
          | IiifNotification Iiif.Loading.Notification
+         | ManifestPanelMsg Int ManifestPanel.Msg
 
 type OutMsg = LoadManifest ManifestUri
             | LoadCollection CollectionUri
@@ -49,40 +44,63 @@ type OutMsg = LoadManifest ManifestUri
 
 
 component : U.Component Model Msg OutMsg
-component = { init = init, emptyModel = emptyModel, update = update, view = view }
+component = { init = init, emptyModel = emptyModel, update = update, view = view, subscriptions = subscriptions }
 
+manifestPanel ind = 
+  U.subComponent 
+    { component = ManifestPanel.component 
+    , unwrapModel = \model -> 
+        case ListE.getAt ind model.panelModels of
+          Just panelModel -> {panelModel | iiif = model.iiif}
+          Nothing -> Debug.log "Panel model not found" ManifestPanel.emptyModel
+    , wrapModel = \model subModel -> { model | panelModels = ListE.setAt ind { subModel | iiif = Iiif.Utils.empty } model.panelModels }
+    , wrapMsg = ManifestPanelMsg ind
+    , outEvaluator = \msgSub model ->
+        case (msgSub, ListE.getAt ind (allManifestUris model)) of
+          (_, Nothing) -> (model, Cmd.none, [])
+          (ManifestPanel.ManifestSelected, Just manifestUri) -> (model, Cmd.none, [ManifestSelected manifestUri])
+          (ManifestPanel.CanvasSelected canvasUri, Just manifestUri) -> (model, Cmd.none, [CanvasSelected manifestUri canvasUri])
+    }
 
 init : Decode.Value -> ( Model, Cmd Msg, List OutMsg )
 init flags = (emptyModel, Cmd.none, [])
+
+subscriptions : Model -> Sub Msg
+subscriptions model = 
+    Sub.batch <| List.indexedMap (\index _ -> (manifestPanel index).subscriptions model) model.panelModels
 
 emptyModel = 
   { iiif = Iiif.Utils.empty
   , manifests = []
   , collection = Nothing
   , selectedManifest = Nothing
+  , panelModels = []
   , errors = []
   }
 
 update : Msg -> Model -> ( Model, Cmd Msg, List OutMsg )
 update msg model = 
   case msg of
-    AddManifest manifestUri -> updateLoadManifests { model | manifests = model.manifests ++ [manifestUri]}
-    ClearManifests -> ({ model | manifests = [] }, Cmd.none, [])
-    SetManifests manifestUris -> updateLoadManifests { model | manifests = manifestUris }
-    ClearCollection -> ({ model | collection = Nothing }, Cmd.none, [])
-    SetCollection collectionUri -> updateLoadManifests { model | collection = Just collectionUri }
+    AddManifest manifestUri -> { model | manifests = model.manifests ++ [manifestUri]} |> updateLoadManifests |> U.mapModel resetPanels
+    ClearManifests -> ({ model | manifests = [] }, Cmd.none, []) |> U.mapModel resetPanels
+    SetManifests manifestUris -> { model | manifests = manifestUris } |> updateLoadManifests |> U.mapModel resetPanels
+    ClearCollection -> ({ model | collection = Nothing }, Cmd.none, []) |> U.mapModel resetPanels
+    SetCollection collectionUri -> updateLoadManifests { model | collection = Just collectionUri } |> U.mapModel resetPanels
     IiifNotification notification -> 
       case notification of
         Iiif.Loading.CollectionLoaded collectionUri -> 
           if model.collection == Just collectionUri then
-            updateLoadManifests model
+            updateLoadManifests model |> U.mapModel resetPanels
           else
             (model, Cmd.none, [])
         _ -> (model, Cmd.none, [])
     ManifestClicked manifestUri -> (model, Cmd.none, [ManifestSelected manifestUri])
     CanvasClicked manifestUri canvasUri -> (model, Cmd.none, [CanvasSelected manifestUri canvasUri])
+    ManifestPanelMsg index manifestPanelMsg -> 
+      case ListE.getAt index model.panelModels of
+        Just panelModel -> (manifestPanel index).updater manifestPanelMsg model
+        Nothing -> (model, Cmd.none, [])
     
-
 
 allManifestUris : Model -> List ManifestUri
 allManifestUris model = 
@@ -92,6 +110,17 @@ allManifestUris model =
     collectionManifests = Maybe.withDefault [] maybeManifestUris
   in
     model.manifests ++ collectionManifests
+
+resetPanels : Model -> Model
+resetPanels model = 
+  let
+    panelModel manifestUri = 
+      let
+        re = Maybe.withDefault Regex.never (Regex.fromString "\\W+")
+        panelId = Regex.replace re (\_ -> "_") manifestUri
+      in ManifestPanel.emptyModel |> ManifestPanel.id panelId |> ManifestPanel.manifest manifestUri
+  in
+  { model | panelModels = List.map panelModel (allManifestUris model) }
 
 updateLoadManifests : Model -> (Model, Cmd Msg, List OutMsg)
 updateLoadManifests model = (model, Cmd.none, [])
@@ -106,53 +135,7 @@ updateLoadManifests model = (model, Cmd.none, [])
       |> U.foldOut (\uri m -> [LoadManifest uri]) stubUris
 -}
 
-view : Model -> Html Msg
+view : Model -> Element Msg
 view model = 
-  div [ class "manifest_list" ] (List.map (manifestLine model.iiif) (allManifestUris model))
-
-manifestLine : Iiif -> ManifestUri -> Html Msg
-manifestLine iiif manifestUri =
-  let 
-    manifest = getManifest iiif manifestUri
-    maybeSequence = List.head manifest.sequences
-    maybeAllCanvases = Maybe.map (.canvases) maybeSequence
-    allCanvases = Maybe.withDefault [] maybeAllCanvases
-    canvases = List.take 10 allCanvases
-    logoHtml = case manifest.logo of
-        Just logo -> [ img [src logo, class "logo"] [] ]
-        Nothing -> []
-    spinnerHtml = case isStub manifest of
-      True -> [img [ src "spinner.gif", class "spinner"] []]
-      False -> []
-    re = Maybe.withDefault Regex.never (Regex.fromString "\\W+")
-    details_id = Regex.replace re (\_ -> "_") manifest.id
-    lazyLoadAttrs = 
-      if isStub manifest then [class "lazyload manifest_lazyload", attribute "data-manifest-uri" manifestUri]
-      else []
-  in
-  Grid.row [ Row.attrs lazyLoadAttrs ] [ Grid.col [] [
-    Card.config [ Card.attrs [class "manifest_preview_card"] ]
-      |> Card.headerH3 [] (logoHtml ++ [ Button.button [Button.roleLink, Button.attrs [onClick (ManifestClicked manifestUri)]] [text <| manifestToString manifest] ] ++ spinnerHtml)
-      |> Card.listGroup 
-          [ ListGroup.li [] [ (canvasesLine manifest canvases) ]
-          , ListGroup.li [ ListGroup.attrs [class "manifest_details collapse", id details_id] ] [ ManifestDetails.manifestDetails manifest ]
-          ]
-      |> Card.footer [] 
-        [ div [ class "show_details"] 
-          [ Button.button [Button.roleLink, Button.attrs [class "collapsed", attribute "data-toggle" "collapse", attribute "data-target" ("#" ++ details_id)]] [text "manifest details"] 
-          ]
-        , div [ class "image_count"] [ text <| pluralise (List.length allCanvases) "image" "images" ]
-        , iiifLink manifestUri
-        ]
-      |> Card.view
-  ]]
-
-canvasesLine : Manifest -> List Canvas -> Html Msg
-canvasesLine manifest canvases =
--- Images need to be keyed. It appears that lazy loading confuses Elm otherwise.
-  Keyed.node "div" [ class "canvas_line" ]
-    (List.map (wrapKey <| \c -> Button.button [ Button.roleLink, Button.attrs [class "canvas_preview", onClick (CanvasClicked manifest.id c.id)]] [ canvasImgHtml c ]) canvases )
-
-canvasImgHtml : Canvas -> Html msg
-canvasImgHtml canvas = 
-  img [ height 60, class "lazyload", src "spinner_40x60.gif", attribute "data-src" <| Iiif.ImageApi.canvasThumbnailUrl (Iiif.ImageApi.FitH 60) canvas] []
+  column [width fill, height fill, spacing 15] (List.indexedMap (\ind uri -> (manifestPanel ind).view model) (allManifestUris model))
+  

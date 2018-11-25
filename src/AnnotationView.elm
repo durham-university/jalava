@@ -1,14 +1,20 @@
 module AnnotationView exposing(..)
 
-import Html exposing (..)
-import Html.Attributes exposing (..)
+import Html
+
+import Element exposing(..)
+import Element.Background as Background
+
+import UI.Panel as Panel
+import UI.Colors as Colors
+
 import Dict
 
 import Utils
 
 import Iiif.Types exposing(..)
 
-annotationView : Maybe Annotation -> Html msg
+annotationView : Maybe Annotation -> Element msg
 annotationView maybeAnnotation = 
   case maybeAnnotation of
     Just annotation -> 
@@ -16,5 +22,10 @@ annotationView maybeAnnotation =
         content = annotation.resource.chars 
                     |> Maybe.withDefault ""
                     |> Utils.sanitiseHtml
-      in div [class "card card-body annotation_view"] content
-    Nothing -> div [class "card card-body annotation_view hide"] []
+      in 
+        Panel.empty 
+          |> Panel.content (html <| Html.div [] content) 
+          |> Panel.popup 
+          |> Panel.attributes [Background.color Colors.defaultBackground]
+          |> Panel.panel
+    Nothing -> Element.none

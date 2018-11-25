@@ -46,8 +46,12 @@ toast config =
       ]
       ++ config.attributes )
     [ config.content
-    , Button.slimLink |> Button.attributes [Element.alignRight] |> Button.color config.baseColor |> Button.content (TitleLine.iconOnly "times") |> Button.button
---    , Input.button [Element.alignRight] {onPress = config.onClose, label = Icon.icon "times" []}
+    , Button.slimLink 
+      |> Button.maybeOnPress config.onClose 
+      |> Button.attributes [Element.alignRight] 
+      |> Button.color config.baseColor 
+      |> Button.content (TitleLine.iconOnly "times") 
+      |> Button.button
     ]
 
 attributes : List (Attribute msg) -> ToastConfig msg -> ToastConfig msg

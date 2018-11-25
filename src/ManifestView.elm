@@ -3,18 +3,20 @@ port module ManifestView exposing(Model, Msg(..), OutMsg(..), init, view, update
 import Url
 import Json.Decode as Decode
 import Json.Encode as Encode
-import Html exposing (..)
-import Html.Lazy as Lazy
-import Html.Attributes exposing (..)
-import Html.Events exposing (onClick)
 
-import Bootstrap.Grid as Grid
-import Bootstrap.Grid.Row as Row
-import Bootstrap.Grid.Col as Col
-import Bootstrap.Button as Button
+import Html
+import Html.Attributes
+
+import Element exposing(..)
+import Element.Lazy as Lazy
+
+import UI.Button as Button
+import UI.TitleLine as TitleLine
+import IiifUI.Spinner as Spinner
+import IiifUI.ManifestTitle as ManifestTitle
 
 import Update as U
-import Utils exposing(iiifLink, pluralise, flip)
+import Utils exposing(pluralise, flip)
 
 import CanvasList
 import ManifestMenu
@@ -29,8 +31,6 @@ import Iiif.ImageApi exposing(osdSource)
 port outPortOsdCmd : Encode.Value -> Cmd msg
 
 port outPortSetAnnotationsCmd : Encode.Value -> Cmd msg
-
-port outPortScrollToView : Encode.Value -> Cmd msg
 
 type alias Model =
   { iiif : Iiif
@@ -148,29 +148,18 @@ scrollCanvasLine : Bool -> Model -> (Model, Cmd Msg, List OutMsg)
 scrollCanvasLine animate model =
   case model.canvas of
     Nothing -> (model, Cmd.none, [])
-    Just canvasUri -> 
-      let 
-        buttonId = CanvasList.buttonIdFor canvasUri
-        scrollCmd = outPortScrollToView (Encode.object
-          [ ("container", Encode.string ".manifest_view .canvas_list")
-          , ("item", Encode.string ("#" ++ buttonId))
-          , ("axis", Encode.string "x")
-          , ("animate", Encode.bool animate)
-          ])
-      in (model, scrollCmd, [])
+    Just canvasUri -> canvasList.updater (CanvasList.ScrollToView canvasUri animate) model
 
 
 component : U.Component Model Msg OutMsg
-component = { init = init, emptyModel = emptyModel, update = update, view = view }
+component = { init = init, emptyModel = emptyModel, update = update, view = view, subscriptions = \x -> Sub.none }
 
 
 init : Decode.Value -> ( Model, Cmd Msg, List OutMsg )
 init flags = 
-  let 
-    baseModel = emptyModel 
-  in
-    (emptyModel, Cmd.none, [])
+  (emptyModel, Cmd.none, [])
     |> U.chain (canvasList.init flags)
+    |> U.mapModel (\m -> { m | canvasListModel = CanvasList.setContainerId "manifest_view_canvas_list" m.canvasListModel })
     |> U.chain (manifestMenu.init flags)
 
 
@@ -268,18 +257,24 @@ osdNotification notification model =
     Nothing -> (model, Cmd.none, [])
 
 
-view : Model -> Html Msg
+titleView : Model -> Element Msg
+titleView model =
+  let
+    maybeManifest = Maybe.map (getManifest model.iiif) model.manifest
+  in
+    case maybeManifest of
+      Just manifest ->
+        row [spacing 5, width fill]
+          [ Button.secondary |> Button.content (TitleLine.iconOnly "arrow-left") |> Button.onPress CloseClicked |> Button.button
+          , el [width fill] (ManifestTitle.empty |> ManifestTitle.manifest manifest |> ManifestTitle.attributes [centerX] |> ManifestTitle.manifestTitle)
+          , Button.secondary |> Button.content (TitleLine.iconOnly "info") |> Button.onPress (SetMenuOpen (not model.menuModel.open)) |> Button.button 
+          ]
+      Nothing -> Element.none
+
+view : Model -> Element Msg
 view model = 
   let
     maybeManifest = Maybe.map (getManifest model.iiif) model.manifest
-    logoHtml = case Maybe.andThen .logo maybeManifest of
-        Just logo -> img [src logo, class "logo"] []
-        Nothing -> text ""
-    title = Maybe.withDefault "" (Maybe.map manifestToString maybeManifest)
-    menuOpenClass = if model.menuModel.open then " show" else ""
-    spinnerHtml = case Maybe.map isStub maybeManifest of
-      Just True -> img [ src "spinner.gif", class "spinner"] []
-      _ -> text ""
     maybeCanvas = case (maybeManifest, model.canvas) of
       (Just manifest, Just canvasUri) -> getCanvas manifest canvasUri
       _ -> Nothing
@@ -287,20 +282,23 @@ view model =
       (Just canvas, Just annotationUri) -> getCanvasAnnotation model.iiif canvas annotationUri
       _ -> Nothing
   in
-  div [ class "manifest_view" ] 
-    [ div [ class "manifest_zoomer" ] 
-      [ Lazy.lazy osdElement model.osdElemId
-      ]
-    , annotationView maybeAnnotation
-    , manifestMenu.view model
-    , div [ class "title" ] 
-      [ Button.button [Button.light, Button.attrs [ class "close_button", onClick CloseClicked ]] [i [ class "fas fa-arrow-left" ] []]
-      , h1 [] [ logoHtml, text title, spinnerHtml ] 
-      , Button.button [Button.light, Button.attrs [ class "menu_button", onClick (SetMenuOpen (not model.menuModel.open)) ]] [i [class "fas fa-info"] []]
-      ]
+  column [spacing 0, width fill, height fill]
+    [ titleView model
+    , el 
+      [ inFront <| el [alignRight, width (px 500), padding 15, height shrink] <| annotationView maybeAnnotation
+      , inFront <| el [alignRight, width (px 500), height fill] <| manifestMenu.view model
+      , width fill, height fill
+      ] (Lazy.lazy osdElement model.osdElemId)
     , canvasList.view model
     ]
 
-osdElement : String -> Html Msg
+
+osdElement : String -> Element Msg
 osdElement elementId =
-  div [ id elementId, class "osd_container" ] []
+  Element.html <| Html.div 
+    [ Html.Attributes.id elementId
+    , Html.Attributes.class "osd_container"
+    , Html.Attributes.style "width" "100%"
+    , Html.Attributes.style "height" "100%" 
+    , Html.Attributes.style "position" "absolute"
+    ] []

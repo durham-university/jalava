@@ -5,59 +5,61 @@ import Html.Attributes exposing (..)
 import Html.Lazy exposing (lazy, lazy2)
 import Dict
 
+import Element exposing(Element)
+import UI.DefinitionList as DefinitionList
+
 import Utils
 import Iiif.Types exposing(..)
 
-manifestDetails : Manifest -> Html msg
-manifestDetails = lazy manifestDetails_
 
-manifestDetails_ : Manifest -> Html msg
-manifestDetails_ manifest = manifestDetailsExtras manifest []
+manifestDetails : Manifest -> Element msg
+manifestDetails manifest = manifestDetailsExtras manifest []
 
-manifestDetailsExtras : Manifest -> List (String, Maybe (Html msg)) -> Html msg
+manifestDetailsExtras : Manifest -> List (String, Maybe (Element msg)) -> Element msg
 manifestDetailsExtras manifest extraValues =
   let 
-    propertyHtml : String -> Maybe (Html msg) -> List (Html msg)
-    propertyHtml label maybeValue = 
-      case maybeValue of
-        Just value -> 
-          [ dt [ class "col-md-3 text-truncate" ] [ text label ]
-          , dd [ class "col-md-9" ] [ value ]
-          ]
-        Nothing -> []
+    propertyItem : String -> Maybe (Element msg) -> List (DefinitionList.DefinitionListItem msg)
+    propertyItem label maybeValue = 
+      Maybe.map2 DefinitionList.DefinitionListItem (Just label) maybeValue
+      |> Maybe.map List.singleton
+      |> Maybe.withDefault []
 
-    propertyHtmlText : String -> Maybe String -> List (Html msg)
-    propertyHtmlText label maybeValue = 
-      let sanitised = Maybe.map (\x -> div [] (Utils.sanitiseHtml x)) maybeValue
-      in
-      propertyHtml label sanitised
+    propertyItemText : String -> Maybe String -> List (DefinitionList.DefinitionListItem msg)
+    propertyItemText label maybeValue = 
+      let sanitised = Maybe.map (Element.html << (Html.div []) << Utils.sanitiseHtml) maybeValue
+      in propertyItem label sanitised
 
-    propertyHtmlLink : String -> String -> Maybe String -> List (Html msg)
-    propertyHtmlLink label valueLabel maybeValueUrl =
-      Maybe.withDefault [] <| Maybe.map
-        (\valueUrl -> propertyHtml label (Just <| a [href valueUrl] [text valueLabel]))
-        maybeValueUrl
+    propertyItemLink : String -> String -> Maybe String -> List (DefinitionList.DefinitionListItem msg)
+    propertyItemLink label valueLabel maybeValueUrl =
+      maybeValueUrl
+        |> Maybe.map (\valueUrl -> propertyItem label (Just <| Element.link [] {url = valueUrl, label = Element.text valueLabel}))
+        |> Maybe.withDefault []
 
-    multiFolder label value list = list ++ (propertyHtmlText label (Just value))
+
+    multiFolder label value list = list ++ (propertyItemText label (Just value))
 
     metadataFolder label value list = List.foldl (multiFolder label) list value
 
-    manifestLinkHtml : String -> Maybe ManifestLink -> List (Html msg)
-    manifestLinkHtml label maybeLink = 
+    manifestLinkItem : String -> Maybe ManifestLink -> List (DefinitionList.DefinitionListItem msg)
+    manifestLinkItem label maybeLink = 
       case maybeLink of
         Nothing -> []
         Just link ->
-          propertyHtmlLink label (Maybe.withDefault (link.id) link.label) (Just link.id)
+          propertyItemLink label (Maybe.withDefault (link.id) link.label) (Just link.id)
     
-    extras = List.foldl (\(l, v) acc -> acc ++ (propertyHtml l v)) [] extraValues
+    extras = List.foldl (\(l, v) acc -> acc ++ (propertyItem l v)) [] extraValues
+
+    allItems = 
+        propertyItemText "Title" manifest.label
+        ++ propertyItemText "Attribution" manifest.attribution
+        ++ propertyItemText "Description" manifest.description
+        ++ Dict.foldl metadataFolder [] manifest.metadata
+        ++ List.concatMap (\x -> manifestLinkItem "See also" (Just x)) manifest.seeAlso
+        ++ List.concatMap (\x -> manifestLinkItem "Related" (Just x)) manifest.related
+        ++ propertyItemLink "License" (Maybe.withDefault "License" manifest.license) manifest.license
+        ++ extras
   in
-  dl [ class "row" ] (
-       propertyHtmlText "Title" manifest.label
-    ++ propertyHtmlText "Attribution" manifest.attribution
-    ++ propertyHtmlText "Description" manifest.description
-    ++ Dict.foldl metadataFolder [] manifest.metadata
-    ++ List.concatMap (\x -> manifestLinkHtml "See also" (Just x)) manifest.seeAlso
-    ++ List.concatMap (\x -> manifestLinkHtml "Related" (Just x)) manifest.related
-    ++ propertyHtmlLink "License" (Maybe.withDefault "License" manifest.license) manifest.license
-    ++ extras
-  )
+  DefinitionList.empty
+    |> DefinitionList.items allItems
+    |> DefinitionList.definitionList
+  
