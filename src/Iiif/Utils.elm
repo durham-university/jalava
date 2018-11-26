@@ -15,11 +15,14 @@ empty =
   }
   
 
-toString : String -> { a | label : Maybe String } -> String
+toString : String -> { a | label : Maybe String, status : Status } -> String
 toString default obj =
   case obj.label of
     Just label -> label
-    Nothing -> default
+    Nothing -> 
+      case obj.status of
+        Loading -> "Loading object"
+        _ -> default
 
 
 isStub : { a | status : Status } -> Bool

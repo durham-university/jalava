@@ -1,8 +1,17 @@
 module UI.ColorUtils exposing(..)
 
-import Element exposing(..)
-
 type alias HSLA = {h: Float, s: Float, l: Float, a: Float}
+
+type Color = RGBA Float Float Float Float
+
+rgb : Float -> Float -> Float -> Color
+rgb r g b = RGBA r g b 1.0
+
+rgba : Float -> Float -> Float -> Float -> Color
+rgba r g b a = RGBA r g b a
+
+toRgb : Color -> { red : Float, green : Float, blue : Float, alpha : Float }
+toRgb (RGBA r g b a) = { red = r, green = g, blue = b, alpha = a }
 
 toHsla : Color -> HSLA
 toHsla color =

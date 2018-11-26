@@ -4,9 +4,12 @@ import Url
 import Json.Decode as Decode
 import Json.Encode as Encode
 
-import Html.Attributes
-import Element exposing (..)
-import Element.Lazy as Lazy
+import UI.Core exposing(..)
+
+import Html exposing(..)
+import Html.Attributes as Attributes
+import Html.Events as Events
+import Html.Lazy exposing(lazy)
 
 import IiifUI.Spinner as Spinner
 import IiifUI.CanvasButton as CanvasButton
@@ -72,10 +75,10 @@ update msg model =
         _ -> (model, Cmd.none, [])
     ScrollToView canvasUri animate -> scrollToView canvasUri animate model
 
-view : Model -> Element Msg
-view model = Lazy.lazy view_ model
+view : Model -> Html Msg
+view model = lazy view_ model
 
-view_ : Model -> Element Msg
+view_ : Model -> Html Msg
 view_ model = 
     case model.manifest of
       Just manifest ->
@@ -88,17 +91,17 @@ view_ model =
               |> CanvasButton.canvas canvas 
               |> CanvasButton.includeLabel 
               |> CanvasButton.onPress (CanvasClicked canvas.id)
-              |> CanvasButton.attributes [htmlAttribute <| Html.Attributes.id (buttonIdFor model canvas.id)]
+              |> CanvasButton.attributes [Attributes.id (buttonIdFor model canvas.id)]
               |> CanvasButton.selected (Just canvas.id == model.selectedCanvas)
               |> CanvasButton.canvasButton
           idAttribute = case model.containerId of
-            Just containerId -> [htmlAttribute <| Html.Attributes.id containerId]
+            Just containerId -> [Attributes.id containerId]
             Nothing -> []
         in
-          if isStub manifest then row [padding 10, spacing 10, width fill, scrollbarX] [Spinner.spinnerThumbnail]
+          if isStub manifest then row 10 [cssPadding <| cssPx 10, fullWidth, Attributes.style "overflow-x" "scroll"] [Spinner.spinnerThumbnail]
           else
-            row ([padding 10, spacing 10, width fill, scrollbarX] ++ idAttribute) (List.map canvasButton canvases)
-      Nothing -> Element.none
+            row 10 ([cssPadding <| cssPx 10, fullWidth, Attributes.style "overflow-x" "scroll"] ++ idAttribute) (List.map canvasButton canvases)
+      Nothing -> none
 
 
 scrollToView : CanvasUri -> Bool -> Model -> (Model, Cmd Msg, List OutMsg)

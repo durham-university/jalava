@@ -1,12 +1,12 @@
 module UI.Fonts exposing(..)
 
-import Element exposing(..)
-import Element.Font as Font
+import Html exposing(Attribute)
+import Html.Attributes as Attributes
 
 import UI.Colors as Colors
 
 textBody : List (Attribute msg)
 textBody = 
-  [ Font.size 16
-  , Font.color Colors.defaultTextColor
+  [ Attributes.style "font-size" "16px"
+  , Attributes.style "font-family" "sans-serif"
   ]

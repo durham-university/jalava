@@ -1,9 +1,12 @@
 module IiifUI.IiifLink exposing(..)
 
-import Element exposing(Element, width, height, px)
+import UI.Core exposing(..)
+import Html exposing (..)
+import Html.Attributes as Attributes
+import Html.Events as Events
 
 import Iiif.Types
 
-iiifLink : Iiif.Types.Uri -> Element msg
+iiifLink : Iiif.Types.Uri -> Html msg
 iiifLink uri =
-  Element.link [] { url = uri, label = Element.image [height <| px 18, width <| px 21] { src = "logo-iiif-small.png", description = "IIIF"} }
+  a [Attributes.href uri] [img [Attributes.height 18, Attributes.width 21, Attributes.src "logo-iiif-small.png", Attributes.alt "IIIF"] []]

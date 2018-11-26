@@ -1,58 +1,60 @@
 module UI.DefinitionList exposing(..)
 
+import UI.Fonts exposing(..)
 import UI.Colors as Colors
 import UI.ColorUtils as C
+import UI.Core exposing(..)
 
-import UI.Fonts exposing(..)
-import UI.Icon exposing(icon)
-
-import Element exposing(..)
-import Element.Border as Border
-import Element.Background as Background
-import Element.Font as Font
-import Element.Input as Input
+import Html exposing (..)
+import Html.Attributes as Attributes
+import Html.Events as Events
 
 type alias DefinitionListItem msg =
   { label : String
-  , value : Element msg
+  , value : Html msg
   }
 
 type alias DefinitionListConfig msg =
   { items : List (DefinitionListItem msg)
-  , widths : (Length, Length)
+  , labelAttributes : List (Attribute msg)
+  , valueAttributes : List (Attribute msg)
   , narrow : Bool
   }
 
 empty : DefinitionListConfig msg
 empty =
   { items = []
-  , widths = (shrink, fill)
+  , labelAttributes = []
+  , valueAttributes = []
   , narrow = False
   }
 
 items : List (DefinitionListItem msg) -> DefinitionListConfig msg -> DefinitionListConfig msg
 items is config = { config | items = is }
 
-widths : Length -> Length -> DefinitionListConfig msg -> DefinitionListConfig msg
-widths w1 w2 config = { config | widths = (w1, w2) }
+labelAttributes : List (Attribute msg) -> DefinitionListConfig msg -> DefinitionListConfig msg
+labelAttributes ls config = { config | labelAttributes = ls }
+
+valueAttributes : List (Attribute msg) -> DefinitionListConfig msg -> DefinitionListConfig msg
+valueAttributes vs config = { config | valueAttributes = vs }
 
 narrow : Bool -> DefinitionListConfig msg -> DefinitionListConfig msg
 narrow b config = { config | narrow = b }
 
 
-label : DefinitionListConfig msg -> DefinitionListItem msg -> Element msg
-label config item = Element.el [padding 5, Font.bold] (text (item.label ++ ":"))
+label : DefinitionListConfig msg -> DefinitionListItem msg -> Html msg
+label config item = el [cssPadding <| cssPx 5, Attributes.style "font-weight" "bold"] (text (item.label ++ ":"))
 
-value : DefinitionListConfig msg -> DefinitionListItem msg -> Element msg
-value config item = Element.el [padding 5] item.value
+value : DefinitionListConfig msg -> DefinitionListItem msg -> Html msg
+value config item = el [cssPadding <| cssPx 5] item.value
 
 
-definitionList : DefinitionListConfig msg -> Element msg
+definitionList : DefinitionListConfig msg -> Html msg
 definitionList config =
   if config.narrow then definitionListNarrow config
   else definitionListTable config
 
-definitionListNarrow : DefinitionListConfig msg -> Element msg
+definitionListNarrow : DefinitionListConfig msg -> Html msg
 definitionListNarrow config =
   let
     mapper = \item ->
@@ -60,22 +62,22 @@ definitionListNarrow config =
       , value config item
       ]
   in
-    column (textBody ++ [width fill]) <| List.concatMap mapper config.items
+    column 5 ([fullWidth] ++ textBody) <| List.concatMap mapper config.items
 
 
-definitionListTable : DefinitionListConfig msg -> Element msg
+definitionListTable : DefinitionListConfig msg -> Html msg
 definitionListTable config =
   let
-    columns : List (Column (DefinitionListItem msg) msg)
+    columns : List (GridColumn (DefinitionListItem msg) msg)
     columns =
-      [ { header = Element.none
-        , width = Tuple.first config.widths
+      [ { header = none
+        , attributes = config.labelAttributes
         , view = label config
         }
-      , { header = Element.none
-        , width = Tuple.second config.widths
+      , { header = none
+        , attributes = config.valueAttributes
         , view = value config
         }
       ]
   in
-    table ([width fill] ++ textBody) {data = config.items, columns = columns}
+    grid ([fullWidth] ++ textBody) columns config.items

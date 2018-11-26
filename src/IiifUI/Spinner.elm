@@ -1,9 +1,12 @@
 module IiifUI.Spinner exposing(..)
 
-import Element exposing(..)
+import UI.Core exposing(..)
+import Html exposing (..)
+import Html.Attributes as Attributes
+import Html.Events as Events
 
-spinner : Element msg
-spinner = image [] {src = "spinner.gif", description = "Loading"}
+spinner : Html msg
+spinner = img [Attributes.src "spinner.gif", Attributes.alt "Loading"] []
 
-spinnerThumbnail : Element msg
-spinnerThumbnail = image [] {src = "spinner_40x60.gif", description = "Loading"}
+spinnerThumbnail : Html msg
+spinnerThumbnail = img [Attributes.src "spinner_40x60.gif", Attributes.alt "Loading"] []

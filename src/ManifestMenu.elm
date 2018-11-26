@@ -3,12 +3,13 @@ port module ManifestMenu exposing(Model, Msg(..), OutMsg(..), init, view, update
 import Url
 import Json.Decode as Decode
 import Json.Encode as Encode
-import Html
-import Html.Attributes
 
-import Element exposing(..)
-import Element.Background as Background
-import Element.Lazy as Lazy
+import UI.Core exposing(..)
+
+import Html exposing(..)
+import Html.Attributes as Attributes
+import Html.Events as Events
+import Html.Lazy exposing(lazy)
 
 import UI.Tabs as Tabs
 import UI.Colors as Colors
@@ -32,7 +33,7 @@ type alias Model =
   , structuresViewModel : StructuresView.Model
   }
 
-type OpenTab = TabInfo | TabToc | TabLayers
+type OpenTab = TabInfo | TabStructures | TabLayers
 
 type Msg  = SetManifest (Maybe Manifest)
           | SetCanvas (Maybe CanvasUri)
@@ -98,15 +99,15 @@ update msg model =
         _ -> (model, Cmd.none, [])
 
 
-view : Model -> Element.Element Msg
-view model = Lazy.lazy view_ model
+view : Model -> Html Msg
+view model = lazy view_ model
 
-view_ : Model -> Element.Element Msg
+view_ : Model -> Html Msg
 view_ model = 
   if model.open then viewOpen model
-  else Element.none
+  else none
 
-viewOpen : Model -> Element.Element Msg
+viewOpen : Model -> Html Msg
 viewOpen model = 
   let
     showClass = if model.open then " show" else ""
@@ -118,43 +119,33 @@ viewOpen model =
                             |> ManifestDetails.manifest manifest
                             |> ManifestDetails.includeIiifLink
                             |> ManifestDetails.manifestDetails
-                            |> Element.el [padding 5, width fill] 
-          Nothing -> Element.none
-      TabToc -> structuresView.view model
-      TabLayers -> Element.text "Layers tab"
+                            |> el [cssPadding <| cssPx 5, fullWidth, fullHeight] 
+          Nothing -> none
+      TabStructures -> structuresView.view model
+      TabLayers -> text "Layers tab"
   in
-  Element.column [spacing 5, width fill, height fill, Background.color Colors.defaultBackground]
+  column 0 
+    [ fullWidth
+    , fullHeight
+    , cssBackgroundColor <| Colors.toCss Colors.defaultBackground
+    ]
     [ Tabs.default
         |> Tabs.content 
-            [ (TabInfo, Element.text "Info")
-            , (TabToc, Element.text "ToC")
-            , (TabLayers, Element.text "Layers")
+            [ (TabInfo, text "Info")
+            , (TabStructures, text "Structures")
+--            , (TabLayers, text "Layers")
             ]
         |> Tabs.selected model.tabState
         |> Tabs.onPress SelectTab
         |> Tabs.tabs
-    , Element.el [height fill] tabContent
+    , el 
+      [ fullWidth
+      , fullHeight
+      , Attributes.style "overflow-y" "scroll"
+      , Attributes.style "overflow-x" "hidden"
+      , Attributes.style "flex-shrink" "1"
+      , Attributes.style "word-break" "break-word"
+      , Attributes.style "border-left" <| "1px solid " ++ (Colors.toCss Colors.divider)
+      , Attributes.style "border-bottom" <| "1px solid " ++ (Colors.toCss Colors.divider)
+      ] tabContent
     ]
-  
-{-  
-    [ Tab.config TabMsg
-      |> Tab.items
-        [ Tab.item 
-            { id = "manifest_view_menu_info" 
-            , link = Tab.link [] [ text "Info" ]
-            , pane = Tab.pane [class "container-fluid"] [ info ]
-            }
-        , Tab.item
-            { id = "manifest_view_menu_toc" 
-            , link = Tab.link [] [ text "ToC" ]
-            , pane = Tab.pane [class "container-fluid"] [ structuresView.view model ] 
-            }
-        , Tab.item
-            { id = "manifest_view_menu_layers" 
-            , link = Tab.link [] [ text "Layers" ]
-            , pane = Tab.pane [] [ text "layers tab"]
-            }
-        ]
-      |> Tab.view model.tabState
-    ]
--}

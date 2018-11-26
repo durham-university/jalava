@@ -2,7 +2,7 @@ module Update exposing(..)
 
 import Json.Decode as Decode
 
-import Element
+import Html as Html exposing(Html)
 
 catCmd : Cmd msg -> Cmd msg -> Cmd msg
 catCmd a b =
@@ -174,7 +174,7 @@ type alias Component model msg outMsg =
   { init : Decode.Value -> ( model, Cmd msg, List outMsg )
   , emptyModel : model
   , update : msg -> model -> ( model, Cmd msg, List outMsg )
-  , view : model -> Element.Element msg
+  , view : model -> Html msg
   , subscriptions : model -> Sub msg
   }
 
@@ -192,7 +192,7 @@ type alias ComponentMount modelParent modelSub msgParent msgSub outMsgParent out
   , pipe : modelParent -> (modelSub, Cmd msgSub, List outMsgSub) -> (modelParent, Cmd msgParent, List outMsgParent)
   , updater : msgSub -> modelParent -> (modelParent, Cmd msgParent, List outMsgParent)
   , init : Decode.Value -> modelParent -> (modelParent, Cmd msgParent, List outMsgParent)
-  , view : modelParent -> Element.Element msgParent
+  , view : modelParent -> Html msgParent
   , subscriptions : modelParent -> Sub msgParent
   }
 
@@ -210,8 +210,8 @@ subComponent s =
     init : Decode.Value -> modelParent -> (modelParent, Cmd msgParent, List outMsgParent)
     init flags m = s.component.init flags |> pipe m
 
-    view : modelParent -> Element.Element msgParent
-    view model = Element.map s.wrapMsg <| s.component.view (s.unwrapModel model)
+    view : modelParent -> Html msgParent
+    view model = Html.map s.wrapMsg <| s.component.view (s.unwrapModel model)
 
     subscriptions : modelParent -> Sub msgParent
     subscriptions model = Sub.map s.wrapMsg <| s.component.subscriptions (s.unwrapModel model)

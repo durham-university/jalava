@@ -2,11 +2,9 @@ module Utils exposing(..)
 
 import Iiif.Types
 
-import Html exposing(Html)
-import Html.Attributes
+import Html as Html exposing(Html) 
+import Html.Attributes as Attributes
 import Regex
-
-import Element exposing (Element, height, width, px)
 
 import XmlParser exposing (..)
 import VirtualDom as Dom
@@ -60,9 +58,9 @@ sanitiseHtml string =
               sanitisedAttributes =
                 attributes 
                   |> List.filter (\a -> List.member a.name allowedAttrs) 
-                  |> List.map (\a -> Dom.attribute a.name a.value)
+                  |> List.map (\a -> Attributes.attribute a.name a.value)
             in
-              Dom.node elem sanitisedAttributes (List.map sanitiseNode children)
+              Html.node elem sanitisedAttributes (List.map sanitiseNode children)
           else Html.text ""
         XmlParser.Text text -> Html.text text
     

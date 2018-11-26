@@ -3,28 +3,29 @@ module UI.Tree exposing(..)
 import UI.Colors as Colors
 import UI.ColorUtils as C
 
+import UI.Core exposing(..)
 import UI.Fonts exposing(..)
 import UI.Icon exposing(icon)
 import UI.Button as Button
 
-import Element exposing(..)
-import Element.Border as Border
-import Element.Background as Background
-import Element.Font as Font
-import Element.Input as Input
-import Element.Events as Events
+import Html exposing (..)
+import Html.Attributes as Attributes
+import Html.Events as Events
+
+import Json.Decode as Decode
+
 
 type alias TreeConfig itemType msg =
   { rootItems : List itemType
   , itemChildren : itemType -> List itemType
   , itemOpen : itemType -> Bool
-  , itemLabel : itemType -> Element msg
-  , itemIcon : itemType -> Maybe (Element msg)
+  , itemLabel : itemType -> Html msg
+  , itemIcon : itemType -> Maybe (Html msg)
   , itemSelected : itemType -> Bool
   , onPress : itemType -> Maybe msg
   , onPressIcon : itemType -> Maybe msg
-  , baseColor : Color
-  , selectColor : Maybe Color
+  , baseColor : String
+  , selectColor : Maybe String
   , padding : Int
   , indent : Int
   , attributes : List (Attribute msg)
@@ -35,12 +36,12 @@ empty =
   { rootItems = []
   , itemChildren = \_ -> []
   , itemOpen = \_ -> True
-  , itemLabel = \_ -> Element.none
+  , itemLabel = \_ -> none
   , itemIcon = \_ -> Nothing
   , itemSelected = \_ -> False
   , onPress = \_ -> Nothing
   , onPressIcon = \_ -> Nothing
-  , baseColor = Colors.primary
+  , baseColor = "Primary"
   , selectColor = Nothing
   , padding = 10
   , indent = 20
@@ -50,13 +51,13 @@ empty =
 attributes : List (Attribute msg) -> TreeConfig itemType msg -> TreeConfig itemType msg
 attributes attrs config = {config | attributes = config.attributes ++ attrs}
 
-color : Color -> TreeConfig itemType msg -> TreeConfig itemType msg
+color : String -> TreeConfig itemType msg -> TreeConfig itemType msg
 color color_ config = {config | baseColor = color_}
 
-selectColor : Color -> TreeConfig itemType msg -> TreeConfig itemType msg
+selectColor : String -> TreeConfig itemType msg -> TreeConfig itemType msg
 selectColor color_ config = {config | selectColor = Just color_}
 
-maybeSelectColor : Maybe Color -> TreeConfig itemType msg -> TreeConfig itemType msg
+maybeSelectColor : Maybe String -> TreeConfig itemType msg -> TreeConfig itemType msg
 maybeSelectColor color_ config = {config | selectColor = color_}
 
 padding : Int  -> TreeConfig itemType msg -> TreeConfig itemType msg
@@ -77,10 +78,10 @@ children f config = { config | itemChildren = f }
 open : (itemType -> Bool ) -> TreeConfig itemType msg -> TreeConfig itemType msg
 open f config = { config | itemOpen = f }
 
-label : (itemType -> Element msg ) -> TreeConfig itemType msg -> TreeConfig itemType msg
+label : (itemType -> Html msg ) -> TreeConfig itemType msg -> TreeConfig itemType msg
 label f config = { config | itemLabel = f }
 
-icon : (itemType -> Maybe (Element msg) ) -> TreeConfig itemType msg -> TreeConfig itemType msg
+icon : (itemType -> Maybe (Html msg) ) -> TreeConfig itemType msg -> TreeConfig itemType msg
 icon f config = { config | itemIcon = f }
 
 selected : (itemType -> Bool ) -> TreeConfig itemType msg -> TreeConfig itemType msg
@@ -93,7 +94,7 @@ onPressIcon : (itemType -> Maybe msg) -> TreeConfig itemType msg -> TreeConfig i
 onPressIcon f config = {config | onPressIcon = f}
 
 
-treeNode : TreeConfig itemType msg -> Int -> itemType -> List (Element msg)
+treeNode : TreeConfig itemType msg -> Int -> itemType -> List (Html msg)
 treeNode config totalIndent node =
   let 
     selectBg = case config.selectColor of
@@ -103,34 +104,43 @@ treeNode config totalIndent node =
         if config.itemOpen node then 
           List.concatMap (treeNode config (totalIndent + config.indent)) (config.itemChildren node)
         else []
-    selectedAttrs = 
+    selectedStyle = 
         if config.itemSelected node then 
-          [ selectBg |> Background.color
-          , rgb 1.0 1.0 1.0 |> Font.color
-          , mouseOver [ selectBg |> C.darken 0.1 |> Background.color ]
+          [ Attributes.class ("bg" ++ selectBg ++ " bgHover")
+          , cssColor <| Colors.toCss <| C.rgb 1.0 1.0 1.0
           ]
         else 
-          [ mouseOver [ selectBg |> C.desaturate 0.9 |> Background.color ]
+          [ Attributes.class ("bg" ++ selectBg ++ " bgHoverOnly bgAlphaHigh text" ++ config.baseColor)
           ]
-    borderAttrs = if List.head config.rootItems == Just node then []
-                  else [ Border.widthEach {bottom = 0, left = 0, right = 0, top = 1} ]
+    borderStyle = if List.head config.rootItems == Just node then []
+                  else [ cssBorderWidth4 (cssPx 1) (cssPx 0) (cssPx 0) (cssPx 0), cssBorderStyle "solid" ]
 
     iconButton = case config.itemIcon node of
-                  Just icon_ -> Input.button [] { onPress = config.onPressIcon node, label = icon_ }
-                  Nothing -> Element.none
-    labelButton = Input.button [] {onPress = config.onPress node, label = config.itemLabel node}
+                  Just icon_ -> 
+                    let 
+                      iconClickAttribute = 
+                        case config.onPressIcon node of
+                          Just msg -> [Events.onClick msg]
+                          Nothing -> []
+                    in
+                    UI.Core.button iconClickAttribute icon_
+                  Nothing -> none
+    labelClickAttribute = Maybe.map (List.singleton << Events.onClick) (config.onPress node) |> Maybe.withDefault []
+    labelButton = 
+      UI.Core.button 
+      ( [ Attributes.style "cursor" "pointer"
+        , cssPadding4 (cssPx config.padding) "0" (cssPx config.padding) "0"
+        , fullWidth
+        ] ++ labelClickAttribute) (config.itemLabel node)
   in
-  [ row
-      ( [ paddingEach {left = config.padding + totalIndent, top = config.padding, bottom = config.padding, right = config.padding}
-        , width fill
-        , Border.color Colors.divider
-        , focused [Border.shadow { offset=(0.0, 0.0), size=0.0, blur=0.0, color = rgb 0.0 0.0 0.0}]
-        , spacing 5
-        ] ++ selectedAttrs ++ borderAttrs)
+  [ row 5
+      ( [cssPadding4 "0" (cssPx config.padding) "0" (cssPx <| config.padding + totalIndent)
+        , cssBorderColor <| Colors.toCss Colors.divider
+        ] ++ selectedStyle ++ borderStyle )
       [iconButton, labelButton]
   ] ++ nodeChildren
 
-tree : TreeConfig itemType msg -> Element msg
+tree : TreeConfig itemType msg -> Html msg
 tree config =
-  Element.column (textBody ++ [Font.color config.baseColor] ++ config.attributes)
+  column 0 (textBody ++ [Attributes.style "align-items" "stretch"] ++ config.attributes)
     <| List.concatMap (treeNode config 0) config.rootItems

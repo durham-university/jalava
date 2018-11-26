@@ -1,11 +1,12 @@
 module UI.Icon exposing(..)
 
-import Element
-import Html
-import Html.Attributes
+import UI.Core exposing(..)
 
-icon : String -> List (Element.Attribute msg) -> Element.Element msg
+import Html exposing (..)
+import Html.Attributes as Attributes
+import Html.Events as Events
+
+icon : String -> List (Attribute msg) -> Html msg
 icon iconName attributes =
-  Element.el attributes <|
-    Element.html <|
-      Html.i [Html.Attributes.class ("fas fa-" ++ iconName)] []
+  el attributes <|
+      Html.i [Attributes.class ("fas fa-" ++ iconName)] []

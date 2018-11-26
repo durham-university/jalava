@@ -3,6 +3,7 @@
 import 'lazysizes';
 
 require('./uigallery.html');
+require('./main.scss');
 
 window.lazySizesConfig = window.lazySizesConfig || {};
 window.lazySizesConfig.loadHidden = false;

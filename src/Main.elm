@@ -3,19 +3,19 @@ port module Main exposing(..)
 import Browser
 import Browser.Navigation as Nav
 
+import Html as Html exposing(Html)
+import Html.Attributes as Attributes exposing(style)
+
 import Http
 import Url
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Set exposing(Set)
 
-import Html
-import Html.Attributes
-
-import Element exposing(..)
+import UI.Core exposing(..)
 import UI.Toast as Toast
 import UI.TitleLine as TitleLine
-import UI.Screen exposing(screenWith)
+import UI.Screen exposing(screen)
 
 import Utils exposing(..)
 
@@ -320,33 +320,34 @@ subscriptions model = Sub.batch
 
 view : Model -> Browser.Document Msg
 view model =
-  let layoutOptions = { options = [ focusStyle { borderColor = Nothing, backgroundColor = Nothing, shadow = Nothing }] }
-  in
   { title = "Elm IIIF"
   , body = 
-    [ Element.layoutWith layoutOptions
-        [ inFront <| screenWith layoutOptions (model.screen == Browser) (browserView model)
-        , inFront <| screenWith layoutOptions (model.screen == Viewer) (manifestView.view model)
-        , inFront <| errorsView model
-        , width fill, height fill
-        ] Element.none
-    , Html.div [ Html.Attributes.style "display" "none" ] [ Html.div [ Html.Attributes.id "annotation_overlay_wrapper"] [Html.div [Html.Attributes.id "annotation_overlay"] []]]
+    [ screen (model.screen == Browser) (browserView model)
+    , screen (model.screen == Viewer) (manifestView.view model)
+    , errorsView model
+    , Html.div [ Attributes.style "display" "none" ] [ Html.div [ Attributes.id "annotation_overlay_wrapper"] [Html.div [Attributes.id "annotation_overlay"] []]]
     ]
   }
 
-browserView : Model -> Element Msg
+browserView : Model -> Html Msg
 browserView model =
-  row [spacing 0, width fill, height fill]
-    [ el [width (fillPortion 1), height fill, scrollbars] (collectionTree.view model)
-    , el [width (fillPortion 3), height fill, padding 10, scrollbarY] (collectionView.view model)
+  row 0 [fullWidth, fullHeight]
+    [ el [style "flex-grow" "1", fullHeight, style "flex-shrink" "0", style "flex-basis" "0", style "overflow" "scroll"] (collectionTree.view model)
+    , el [style "flex-grow" "2", fullHeight, style "flex-shrink" "0", style "flex-basis" "0", cssPadding <| cssPx 10, style "overflow-y" "scroll"] (collectionView.view model)
     ]
 
-errorsView : Model -> Element Msg
+errorsView : Model -> Html Msg
 errorsView model =
   let
     errorToast index content =
       Toast.error |> Toast.content (TitleLine.simple content) |> Toast.onClose (CloseError index) |> Toast.toast  
   in
     if List.length model.errors > 0 then
-      Element.column [paddingEach {top = 15, left = 15, right = 15, bottom = 0}, spacing 5, width fill] (List.indexedMap errorToast model.errors)
-    else Element.none
+      column 15 
+        [ cssPadding4 (cssPx 15) (cssPx 15) (cssPx 0) (cssPx 15)
+        , Attributes.style "position" "absolute"
+        , Attributes.style "top" "0"
+        , Attributes.style "left" "0"
+        , Attributes.style "right" "0"
+        ] (List.indexedMap errorToast model.errors)
+    else none

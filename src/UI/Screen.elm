@@ -1,17 +1,13 @@
 module UI.Screen exposing (..)
 
-import Element exposing (..)
-import Html
-import Html.Attributes
+import UI.Core exposing(..)
+import Html exposing(Html)
+import Html.Attributes as Attributes
 
-screen : Bool -> Element msg -> Element msg
-screen = screenWith {options = []}
-
-screenWith : {options : List Option} -> Bool -> Element msg -> Element msg
-screenWith options visible elem =
+screen : Bool -> Html msg -> Html msg
+screen visible elem =
   let
-    fixedAttrs = [Html.Attributes.style "position" "fixed", Html.Attributes.style "width" "100%", Html.Attributes.style "height" "100%"]
-    displayAttrs =  if visible then fixedAttrs
-                    else fixedAttrs ++ [Html.Attributes.style "display" "none"]
+    displayAttrs =  if visible then []
+                    else [Attributes.class "hide"]
   in
-  html <| Html.div displayAttrs [layoutWith {options = [noStaticStyleSheet] ++ options.options} [width fill, height fill] elem]
+  Html.div ([Attributes.class "screen"] ++ displayAttrs) [elem]

@@ -3,20 +3,18 @@ module CollectionTree exposing(Model, Msg(..), OutMsg(..), component, init, view
 import Set exposing(Set, insert, remove, member)
 import Url
 import Json.Decode as Decode
-import Html
-import Html.Attributes
-import Html.Events
-import Bootstrap.Button as Button
+import Html exposing(..)
+import Html.Attributes as Attributes
+import Html.Events as Events
+import Html.Lazy as Lazy
 
 import Iiif.Types exposing(..)
 import Iiif.Loading
 import Iiif.Utils exposing(getCollection, getCollections, isStub)
 
+import UI.Core exposing(..)
 import UI.Tree as Tree
 import UI.Icon as Icon
-
-import Element exposing(..)
-import Element.Lazy as Lazy
 
 import Utils exposing(..)
 import Update as U
@@ -84,10 +82,10 @@ isCollectionOpened collection model = isCollectionUriOpened collection.id model
 isCollectionUriOpened : CollectionUri -> Model -> Bool
 isCollectionUriOpened collectionUri model = member collectionUri model.openedCollections
 
-view : Model -> Element.Element Msg
+view : Model -> Html Msg
 view model = Lazy.lazy view_ model
 
-view_ : Model -> Element.Element Msg
+view_ : Model -> Html Msg
 view_ model = 
   let
     collectionToNode : List CollectionUri -> Collection -> (Collection, List CollectionUri)
@@ -96,10 +94,10 @@ view_ model =
     nodeOpen : (Collection, List CollectionUri) -> Bool
     nodeOpen (collection, path) = isCollectionOpened collection model
 
-    nodeLabel : (Collection, List CollectionUri) -> Element.Element msg
-    nodeLabel (collection, path) = Element.text (Iiif.Utils.toString "" collection)
+    nodeLabel : (Collection, List CollectionUri) -> Html msg
+    nodeLabel (collection, path) = el [Attributes.style "white-space" "no-wrap"] <| text (Iiif.Utils.toString "Unnamed collection" collection)
 
-    nodeIcon : (Collection, List CollectionUri) -> Maybe (Element.Element msg)
+    nodeIcon : (Collection, List CollectionUri) -> Maybe (Html msg)
     nodeIcon (collection, path) = 
       if isCollectionOpened collection model then Just (Icon.icon "folder-open" [])
       else Just (Icon.icon "folder"[])
@@ -111,7 +109,7 @@ view_ model =
     nodeSelected (collection, path) = List.head model.selectedCollection == List.head path
   in
   Tree.empty
-    |> Tree.attributes [height fill]
+    |> Tree.attributes [fullWidth]
     |> Tree.rootItems (List.map (collectionToNode []) (getCollections model.iiif model.collections))
     |> Tree.label nodeLabel
     |> Tree.icon nodeIcon

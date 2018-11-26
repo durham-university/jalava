@@ -2,10 +2,11 @@ module IiifUI.CanvasButton exposing(..)
 
 import Dict
 
-import Element exposing(..)
-import Element.Input as Input
-import Element.Border as Border
+import Html exposing (..)
+import Html.Attributes as Attributes
+import Html.Events as Events
 
+import UI.Core exposing(..)
 import UI.Colors as Colors
 import UI.ColorUtils as C
 import UI.DefinitionList as DefinitionList
@@ -51,31 +52,35 @@ attributes attrs model = {model | attributes = attrs}
 selected : Bool -> CanvasButtonConfig msg -> CanvasButtonConfig msg
 selected b model = {model | selected = b}
 
-canvasButton : CanvasButtonConfig msg -> Element msg
+canvasButton : CanvasButtonConfig msg -> Html msg
 canvasButton config =
   case config.canvas of
-    Nothing -> Element.none
+    Nothing -> none
     Just canvas_ -> 
       if config.includeLabel then
-        column ([spacing 5, width shrink] ++ config.attributes) [canvasButtonOnly config, canvasLabelOnly config]
-      else Element.el config.attributes <| canvasButtonOnly config
+        column 5 ([Attributes.style "flex-shrink" <| cssNum 1, Attributes.style "align-items" "center"] ++ config.attributes) [canvasButtonOnly config, canvasLabelOnly config]
+      else el config.attributes <| canvasButtonOnly config
 
-canvasButtonOnly : CanvasButtonConfig msg -> Element msg
+canvasButtonOnly : CanvasButtonConfig msg -> Html msg
 canvasButtonOnly config =
   case config.canvas of
-    Nothing -> Element.none
+    Nothing -> none
     Just canvas_ -> 
       let
         width_ = round ((toFloat canvas_.width) / (toFloat canvas_.height) * 60.0)
         thumbSrc = Iiif.ImageApi.canvasThumbnailUrl (Iiif.ImageApi.FitH 60) canvas_
-        canvasThumb = lazyloadImage [height <| px 60] {src = thumbSrc, spinnerSrc = "spinner_40x60.gif", description = Maybe.withDefault "" canvas_.label}
-        selectedAttrs = if config.selected  then [Border.shadow { offset = (0.0, 0.0), size = 2.0, blur = 3.0, color = Colors.primary |> C.scaleAlpha 0.7}]
+        canvasThumb = lazyloadImage [Attributes.height 60] {src = thumbSrc, spinnerSrc = "spinner_40x60.gif", description = Maybe.withDefault "" canvas_.label}
+        selectedAttribute = if config.selected  then [Attributes.style "box-shadow" (String.join " " ["0","0",cssPx 3, cssPx 2, (Colors.primary |> C.scaleAlpha 0.7 |> Colors.toCss)]) ]
                                             else []
+        clickAttribute = Maybe.map (List.singleton << Events.onClick) config.onPress |> Maybe.withDefault []
       in
-      Element.el ([width <| px width_, height <| px 60, centerX] ++ selectedAttrs) <| Input.button [] {onPress = config.onPress, label = canvasThumb}
-
-canvasLabelOnly : CanvasButtonConfig msg -> Element msg
+      el ([ cssWidth <| cssPx width_
+          , cssHeight <| cssPx 60
+          , Attributes.style "cursor" "pointer"
+          ] ++ selectedAttribute  ++ clickAttribute) <| UI.Core.button [] canvasThumb
+ 
+canvasLabelOnly : CanvasButtonConfig msg -> Html msg
 canvasLabelOnly config = 
   config.canvas |> Maybe.andThen .label |> Maybe.withDefault "" 
-    |> Element.text 
-    |> Element.el ([centerX] ++ Fonts.textBody)
+    |> text
+    |> el (Fonts.textBody ++ [Attributes.style "white-space" "nowrap"])

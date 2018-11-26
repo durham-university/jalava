@@ -3,22 +3,16 @@ port module StructuresView exposing(Model, Msg(..), OutMsg(..), init, view, upda
 import Url
 import Json.Decode as Decode
 import Json.Encode as Encode
-import Html exposing (..)
-import Html.Attributes exposing (..)
-import Html.Events exposing (onClick)
 
-import Element
-import Element.Lazy as Lazy
+import UI.Core exposing(..)
 
-import Bootstrap.Grid as Grid
-import Bootstrap.Grid.Row as Row
-import Bootstrap.Grid.Col as Col
-import Bootstrap.Button as Button
+import Html exposing(..)
+import Html.Lazy exposing(lazy)
+import Html.Attributes as Attributes 
+import Html.Events as Events
 
 import Update as U
 import Utils exposing(pluralise)
-
-import ManifestDetails exposing(..)
 
 import Iiif.Types exposing(..)
 import Iiif.Loading
@@ -26,8 +20,6 @@ import Iiif.Utils exposing(..)
 
 import UI.Tree as Tree
 import UI.Icon as Icon
-
-import Element
 
 type alias Model =
   { manifest : Maybe Manifest
@@ -70,17 +62,18 @@ update msg model =
           else (model, Cmd.none, [])
         _ -> (model, Cmd.none, [])
 
-view : Model -> Element.Element Msg
-view model = Lazy.lazy view_ model
+view : Model -> Html Msg
+view model = lazy view_ model
 
-view_ : Model -> Element.Element Msg
+view_ : Model -> Html Msg
 view_ model = 
   case model.manifest of
-    Nothing -> Element.none
+    Nothing -> none
     Just manifest ->
       Tree.empty
+        |> Tree.attributes [fullWidth]
         |> Tree.rootItems (getTopRanges manifest)
-        |> Tree.label (Element.text << Maybe.withDefault "unnamed" << .label)
+        |> Tree.label (text << Maybe.withDefault "unnamed" << .label)
         |> Tree.children (getRanges manifest << .ranges)
         |> Tree.selected (List.any (\c -> model.canvas == Just c) << .canvases)
         |> Tree.onPress (Just << RangeClicked << .id)

@@ -78,8 +78,8 @@ update msg model =
 withPopover : AnnotationUri -> (List (Dom.Attribute Msg) -> Dom.Node Msg) -> Dom.Node Msg
 withPopover annotationUri htmlF =
   htmlF 
-    [SEvents.on "mouseover" (Decode.succeed (OnMouseOver annotationUri))
-    ,SEvents.on "mouseout" (Decode.succeed (OnMouseOut annotationUri))
+    [ SEvents.on "mouseover" (Decode.succeed (OnMouseOver annotationUri))
+    , SEvents.on "mouseout" (Decode.succeed (OnMouseOut annotationUri))
     ]
 
 xmlNodeToSvg : AnnotationUri -> XmlParser.Node -> List (Svg Msg)

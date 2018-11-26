@@ -4,17 +4,19 @@ import Json.Decode as Decode
 import Regex
 import List.Extra as ListE
 
+import UI.Core exposing(..)
+
+import Html exposing(..)
+import Html.Attributes as Attributes
+import Html.Events as Events
+
 import Iiif.Types exposing(..)
 import Iiif.Utils exposing(getManifest, getCollection, isStub, manifestToString)
 import Iiif.Loading
 import Iiif.ImageApi
 
-import Element exposing(..)
-import Element.Keyed as Keyed
-
 import IiifUI.ManifestPanel as ManifestPanel
 
-import ManifestDetails
 import Utils exposing(pluralise, wrapKey)
 import Update as U
 
@@ -142,7 +144,7 @@ resetPanels model =
   { model | panelModels = List.map panelModel model.allManifests }
 
 
-view : Model -> Element Msg
+view : Model -> Html Msg
 view model = 
-  Keyed.column [width fill, height fill, spacing 15] (List.indexedMap (\ind uri -> (uri, (manifestPanel ind).view model)) model.allManifests)
+  column 15 [fullWidth, fullHeight] (List.indexedMap (\ind uri -> (manifestPanel ind).view model) model.allManifests)
   

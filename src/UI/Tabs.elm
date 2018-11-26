@@ -3,19 +3,18 @@ module UI.Tabs exposing(..)
 import UI.Colors as Colors
 import UI.ColorUtils as C
 
+import UI.Core exposing(..)
 import UI.Fonts exposing(..)
 
-import Element exposing(..)
-import Element.Border as Border
-import Element.Background as Background
-import Element.Font as Font
-import Element.Input as Input
+import Html exposing (..)
+import Html.Attributes as Attributes
+import Html.Events as Events
 
 type alias TabsConfig key msg =
-  { tabs: List (key, Element msg)
+  { tabs: List (key, Html msg)
   , onPress: Maybe (key -> msg)
   , selected: Maybe key
-  , baseColor: Color
+  , baseColor: String
   , paddingH: Int
   , paddingV: Int
   , attributes: List (Attribute msg)
@@ -26,13 +25,13 @@ empty =
   { tabs = []
   , onPress = Nothing
   , selected = Nothing
-  , baseColor = Colors.link
+  , baseColor = "Link"
   , paddingV = 10
   , paddingH = 15
   , attributes = []
   }
 
-tabs : TabsConfig key msg -> Element msg
+tabs : TabsConfig key msg -> Html msg
 tabs config =
   let
     pressHandler : key -> Maybe msg
@@ -41,45 +40,51 @@ tabs config =
         Just f -> Just <| f key
         Nothing -> Nothing
     tabButton (key, e) =
+      let
+        clickAttribute = case pressHandler key of
+          Just f -> [Events.onClick f]
+          Nothing -> []
+      in
       if config.selected == Just key then
-        Input.button (textBody ++ 
-            [ paddingEach { top = config.paddingV, bottom = config.paddingV + 1, left = config.paddingH, right = config.paddingH }
-            , Font.color <| C.darken 0.7 config.baseColor
-            , Border.widthEach { bottom = 0, top = 1, left = 1, right = 1}
-            , Border.roundEach { topLeft = 5, topRight = 5, bottomLeft = 0, bottomRight = 0}
-            , Border.color Colors.divider
-            , focused [Border.shadow { offset=(0.0, 0.0), size=0.0, blur=0.0, color = rgb 0.0 0.0 0.0}]
-            ]) {label = e, onPress = pressHandler key}
+        UI.Core.button (textBody ++ 
+            [ cssPadding4 (cssPx config.paddingV) (cssPx config.paddingH) (cssPx <| config.paddingV + 1) (cssPx config.paddingH)
+            , Attributes.class ("text" ++ config.baseColor ++ " textDarken")
+            , cssBorderWidth4 (cssPx 1) (cssPx 1) (cssPx 0) (cssPx 1)
+            , cssBorderStyle "solid"
+            , cssBorderRadius4 (cssPx 5) (cssPx 5) (cssPx 0) (cssPx 0)
+            , cssBorderColor <| Colors.toCss Colors.divider
+            ] ++ clickAttribute) e
       else
-        Input.button (textBody ++ 
-            [ paddingEach { top = config.paddingV + 1, bottom = config.paddingV, left = config.paddingH + 1, right = config.paddingH + 1 }
-            , Font.color config.baseColor
-            , Border.widthEach { bottom = 1, top = 0, left = 0, right = 0}
-            , Border.roundEach { topLeft = 5, topRight = 5, bottomLeft = 0, bottomRight = 0}
-            , Border.color Colors.divider
-            , focused [Border.shadow { offset=(0.0, 0.0), size=0.0, blur=0.0, color = rgb 0.0 0.0 0.0}]
-            , mouseOver [ config.baseColor |> C.desaturate 0.9 |> Background.color ]
-            ]) {label = e, onPress = pressHandler key}
+        UI.Core.button ( textBody ++ 
+            [ cssPadding4 (cssPx <| config.paddingV + 1) (cssPx <| config.paddingH + 1) (cssPx config.paddingV) (cssPx <| config.paddingH + 1)
+            , Attributes.class ("text" ++ config.baseColor ++ " textHover bg" ++ config.baseColor ++" bgHoverOnly bgAlphaHigh")
+            , cssBorderWidth4 (cssPx 0) (cssPx 0) (cssPx 1) (cssPx 0)
+            , cssBorderStyle "solid"
+            , cssBorderRadius4 (cssPx 5) (cssPx 5) (cssPx 0) (cssPx 0)
+            , cssBorderColor <| Colors.toCss Colors.divider
+            , Attributes.style "cursor" "pointer"
+            ] ++ clickAttribute) e
     filler = 
       el 
-        [ width fill
-        , alignBottom
-        , Border.widthEach { bottom = 1, top = 0, left = 0, right = 0}
-        , Border.color Colors.divider
-        ] Element.none
+        [ fullWidth
+        , Attributes.style "align-self" "flex-end"
+        , cssBorderWidth4 (cssPx 0) (cssPx 0) (cssPx 1) (cssPx 0)
+        , cssBorderStyle "solid"
+        , cssBorderColor <| Colors.toCss Colors.divider
+        ] none
   in
-    wrappedRow [width fill] <| (List.map tabButton config.tabs) ++ [filler]
+    wrappedRow 0 [fullWidth] <| (List.map tabButton config.tabs) ++ [filler]
 
 attributes : List (Attribute msg) -> TabsConfig key msg -> TabsConfig key msg
 attributes attrs config = {config | attributes = config.attributes ++ attrs}
 
-color : Color -> TabsConfig key msg -> TabsConfig key msg
+color : String -> TabsConfig key msg -> TabsConfig key msg
 color color_ config = {config | baseColor = color_}
 
-content : List (key, Element msg) -> TabsConfig key msg -> TabsConfig key msg
+content : List (key, Html msg) -> TabsConfig key msg -> TabsConfig key msg
 content tabs_ config = {config | tabs = tabs_}
 
-addTab : key -> Element msg -> TabsConfig key msg -> TabsConfig key msg
+addTab : key -> Html msg -> TabsConfig key msg -> TabsConfig key msg
 addTab key_ tab_ config = {config | tabs = config.tabs ++ [(key_, tab_)]}
 
 selected : key -> TabsConfig key msg -> TabsConfig key msg

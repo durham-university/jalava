@@ -3,52 +3,49 @@ module UI.Toast exposing(..)
 import UI.Colors as Colors
 import UI.ColorUtils as C
 
+import UI.Core exposing(..)
 import UI.Icon as Icon
 import UI.Button as Button
 import UI.TitleLine as TitleLine
 import UI.Fonts exposing(..)
 
-import Element exposing(..)
-import Element.Border as Border
-import Element.Background as Background
-import Element.Font as Font
-import Element.Input as Input
+import Html exposing (..)
+import Html.Attributes as Attributes
+import Html.Events as Events
+
 
 type alias ToastConfig msg =
-  { content: Element msg
+  { content: Html msg
   , round: Int
   , onClose: Maybe msg
-  , baseColor: Color
+  , baseColor: String
   , attributes: List (Attribute msg)
   }
 
 emptyConfig : ToastConfig msg
 emptyConfig =
-  { content = Element.none
+  { content = none
   , round = 5
   , onClose = Nothing
-  , baseColor = Colors.primary
+  , baseColor = "Primary"
   , attributes = []
   }
 
-toast : ToastConfig msg -> Element msg
+toast : ToastConfig msg -> Html msg
 toast config = 
-  Element.row
+  row 5
     ( textBody ++ 
-      [ Element.width Element.fill
-      , Element.padding 15
-      , Border.rounded config.round
-      , Border.color config.baseColor
-      , Border.width 1
-      , Font.color <| C.darken 0.5 config.baseColor
-      , Background.color <| C.desaturate 0.7 config.baseColor
-      , spacing 5
+      [ fullWidth
+      , cssPadding <| cssPx 15
+      , cssBorderRadius <| cssPx config.round
+      , Attributes.class ("bg" ++ config.baseColor ++ " bgDesat border" ++ config.baseColor ++ " text" ++ config.baseColor ++ " textDarken")
+      , cssBorderWidth <| cssPx 1
+      , cssBorderStyle "solid"
       ]
       ++ config.attributes )
-    [ config.content
+    [ el [fullWidth] config.content
     , Button.slimLink 
       |> Button.maybeOnPress config.onClose 
-      |> Button.attributes [Element.alignRight] 
       |> Button.color config.baseColor 
       |> Button.content (TitleLine.iconOnly "times") 
       |> Button.button
@@ -57,13 +54,13 @@ toast config =
 attributes : List (Attribute msg) -> ToastConfig msg -> ToastConfig msg
 attributes attrs config = {config | attributes = config.attributes ++ attrs}
 
-color : Color -> ToastConfig msg -> ToastConfig msg
+color : String -> ToastConfig msg -> ToastConfig msg
 color color_ config = {config | baseColor = color_}
 
 onClose : msg -> ToastConfig msg -> ToastConfig msg
 onClose msg_ config = {config | onClose = Just msg_}
 
-content : Element msg -> ToastConfig msg -> ToastConfig msg
+content : Html msg -> ToastConfig msg -> ToastConfig msg
 content content_ config = {config | content = content_}
 
 round : Int -> ToastConfig msg -> ToastConfig msg
@@ -71,25 +68,25 @@ round amount config = {config | round = amount}
 
 
 primary : ToastConfig msg
-primary = emptyConfig |> color Colors.primary
+primary = emptyConfig |> color "Primary"
 
 secondary : ToastConfig msg
-secondary = emptyConfig |> color Colors.secondary
+secondary = emptyConfig |> color "Secondary"
 
 success : ToastConfig msg
-success = emptyConfig |> color Colors.success
+success = emptyConfig |> color "Success"
 
 error : ToastConfig msg
-error = emptyConfig |> color Colors.error
+error = emptyConfig |> color "Error"
 
 warning : ToastConfig msg
-warning = emptyConfig |> color Colors.warning
+warning = emptyConfig |> color "Warning"
 
 white : ToastConfig msg
 white = 
   emptyConfig 
-    |> color (rgb 0.5 0.5 0.5)
+    |> color "Dim"
     |> attributes 
-        [ Background.color <| rgb 1.0 1.0 1.0
-        , Font.color Colors.defaultTextColor
+        [ cssBackgroundColor <| Colors.toCss <| C.rgb 1.0 1.0 1.0
+        , cssColor <| Colors.toCss Colors.defaultTextColor
         ]

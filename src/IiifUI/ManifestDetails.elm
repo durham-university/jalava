@@ -2,8 +2,11 @@ module IiifUI.ManifestDetails exposing(..)
 
 import Dict
 
-import Element exposing(..)
+import Html exposing (..)
+import Html.Attributes as Attributes
+import Html.Events as Events
 
+import UI.Core exposing(..)
 import UI.DefinitionList as DefinitionList
 
 import IiifUI.IiifLink as IiifLink
@@ -32,25 +35,25 @@ maybeManifest maybeManifest_ config = {config | manifest = maybeManifest_ }
 includeIiifLink : ManifestDetailsConfig -> ManifestDetailsConfig
 includeIiifLink config = {config | includeIiifLink = True}
 
-manifestDetails : ManifestDetailsConfig -> Element msg
+manifestDetails : ManifestDetailsConfig -> Html msg
 manifestDetails config =
   case config.manifest of
-    Nothing -> Element.none
+    Nothing -> none
     Just manifest_ ->
       let 
-        propertyItem : String -> Maybe (Element msg) -> Maybe (DefinitionList.DefinitionListItem msg)
+        propertyItem : String -> Maybe (Html msg) -> Maybe (DefinitionList.DefinitionListItem msg)
         propertyItem label maybeValue = 
           Maybe.map2 DefinitionList.DefinitionListItem (Just label) maybeValue
 
         propertyItemText : String -> Maybe String -> Maybe (DefinitionList.DefinitionListItem msg)
         propertyItemText label maybeValue = 
-          let sanitised = Maybe.map (Element.paragraph [] << List.map Element.html << Utils.sanitiseHtml) maybeValue
+          let sanitised = Maybe.map ((div [Attributes.class "formattedContent"]) << Utils.sanitiseHtml) maybeValue
           in propertyItem label sanitised
 
         propertyItemLink : String -> String -> Maybe String -> Maybe (DefinitionList.DefinitionListItem msg)
         propertyItemLink label valueLabel maybeValueUrl =
           maybeValueUrl
-            |> Maybe.andThen (\valueUrl -> propertyItem label (Just <| Element.link [] {url = valueUrl, label = Element.paragraph [] [Element.text valueLabel]}))
+            |> Maybe.andThen (\valueUrl -> propertyItem label (Just <| a [Attributes.href valueUrl] <| [text valueLabel]))
 
 
         multiFolder label value list = list ++ [propertyItemText label (Just value)]

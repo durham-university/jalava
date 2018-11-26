@@ -3,17 +3,14 @@ module IiifUI.ManifestPanel exposing(..)
 import Json.Decode as Decode
 import Dict
 
-import Html
-import Html.Attributes
-
 import Iiif.Loading
 
-import Element exposing(..)
-import Element.Events as Events
-import Element.Input as Input
-import Element.Font as Font
-import Element.Lazy as Lazy
+import Html exposing (..)
+import Html.Attributes as Attributes
+import Html.Events as Events
+import Html.Lazy as Lazy
 
+import UI.Core exposing(..)
 import UI.Panel as Panel
 import UI.DefinitionList as DefinitionList
 import UI.Collapsible as Collapsible
@@ -101,7 +98,7 @@ updateManifestInfo model =
         wrappedInfo = Panel.panelSection Panel.empty 1 (Panel.PaddedContent manifestInfo)
       in 
         {model | collapsible = model.collapsible |> Collapsible.content wrappedInfo}
-    Nothing -> {model | collapsible = model.collapsible |> Collapsible.content Element.none}
+    Nothing -> {model | collapsible = model.collapsible |> Collapsible.content none}
 
 manifest : Manifest -> Model -> Model
 manifest manifest_ model = 
@@ -115,35 +112,38 @@ id : String -> Model -> Model
 id id_ model =
  {model | collapsible = model.collapsible |> Collapsible.id id_}
 
-view : Model -> Element Msg
+view : Model -> Html Msg
 view model = Lazy.lazy view_ model
 
-view_ : Model -> Element Msg
+view_ : Model -> Html Msg
 view_ model =
   case model.manifest of
-    Nothing -> Element.none
+    Nothing -> none
     Just manifest_ -> 
       let
 --        _ = Debug.log "Rendering" manifest_.id
         lazyLoadAttrs = if isStub manifest_ then 
-                            [ htmlAttribute <| Html.Attributes.class "lazyload manifest_lazyload"
-                            , htmlAttribute <| Html.Attributes.attribute "data-manifest-uri" manifest_.id
+                            [ Attributes.class "lazyload manifest_lazyload"
+                            , Attributes.attribute "data-manifest-uri" manifest_.id
                             ]
                         else []        
       in
       Panel.default 
-        |> Panel.attributes lazyLoadAttrs
-        |> Panel.header (Input.button [Font.color Colors.link] {onPress = Just TitleClicked, label = (ManifestTitle.simple manifest_)})
+        |> Panel.attributes (lazyLoadAttrs ++ [fullWidth])
+        |> Panel.header (UI.Core.button 
+                [ cssColor <| Colors.toCss Colors.link
+                , Attributes.style "cursor" "pointer"
+                , Events.onClick TitleClicked] (ManifestTitle.simple manifest_))
         |> Panel.addSection (canvasLine model)
-        |> Panel.addDirectSection (model.collapsible |> Collapsible.view |> Element.map CollapsibleMsg)
+        |> Panel.addDirectSection (model.collapsible |> Collapsible.view |> Html.map CollapsibleMsg)
         |> Panel.footer (footer model)
         |> Panel.panel 
 
 
-canvasLine : Model -> Element Msg
+canvasLine : Model -> Html Msg
 canvasLine model =
   case model.manifest of
-    Nothing -> Element.none
+    Nothing -> none
     Just manifest_ -> 
       let
         canvases = List.head manifest_.sequences |> Maybe.map .canvases |> Maybe.withDefault [] |> List.take 10
@@ -153,28 +153,28 @@ canvasLine model =
             |> CanvasButton.onPress (CanvasClicked canvas.id)
             |> CanvasButton.canvasButton
       in
-        if isStub manifest_ then row [spacing 5] [Spinner.spinnerThumbnail]
-        else row [spacing 5, clip, width fill] (List.map canvasElement canvases)
+        if isStub manifest_ then row 5 [] [Spinner.spinnerThumbnail]
+        else row 5 [Attributes.style "overflow" "hidden", fullWidth] (List.map canvasElement canvases)
 
 
-footer : Model -> Element Msg
+footer : Model -> Html Msg
 footer model =
   case model.manifest of
-    Nothing -> Element.none
+    Nothing -> none
     Just manifest_ -> 
       let
         canvases = List.head manifest_.sequences |> Maybe.map .canvases |> Maybe.withDefault []
         (collapsibleMsg, toggleLabel) = Collapsible.toggleButtonInfo model.collapsible
         toggleButton = 
           Button.slimLink 
-          |> Button.color Colors.defaultTextColor 
-          |> Button.content (toggleLabel |> Element.map CollapsibleMsg)
+          |> Button.color "Dim"
+          |> Button.content (toggleLabel |> Html.map CollapsibleMsg)
           |> Button.onPress (CollapsibleMsg collapsibleMsg)
           |> Button.button
       in
-      row [spacing 5, width fill, Font.color Colors.dimTextColor]
-        [ el [alignLeft] (toggleButton)
-        , el [alignRight] (text <| pluralise (List.length canvases) "image -" "images -")
-        , el [alignRight] (IiifLink.iiifLink manifest_.id)
+      row 5 [fullWidth, cssColor <| Colors.toCss Colors.dimTextColor]
+        [ el [fullWidth] (toggleButton)
+        , el [] (text <| pluralise (List.length canvases) "image -" "images -")
+        , el [] (IiifLink.iiifLink manifest_.id)
         ]
 

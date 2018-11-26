@@ -4,12 +4,12 @@ import Url
 import Json.Decode as Decode
 import Json.Encode as Encode
 
-import Html
-import Html.Attributes
+import Html exposing(..)
+import Html.Attributes as Attributes exposing(style)
+import Html.Events as Events
+import Html.Lazy exposing(lazy)
 
-import Element exposing(..)
-import Element.Lazy as Lazy
-
+import UI.Core exposing(..)
 import UI.Button as Button
 import UI.TitleLine as TitleLine
 import IiifUI.Spinner as Spinner
@@ -258,40 +258,68 @@ loadOtherContent model =
     _ -> (model, Cmd.none, [])
 
 
-titleView : Model -> Element Msg
+titleView : Model -> Html Msg
 titleView model =
   case model.manifest of
     Just manifest ->
-      row [spacing 5, width fill]
-        [ Button.secondary |> Button.content (TitleLine.iconOnly "arrow-left") |> Button.onPress CloseClicked |> Button.button
-        , el [width fill] (ManifestTitle.empty |> ManifestTitle.manifest manifest |> ManifestTitle.attributes [centerX] |> ManifestTitle.manifestTitle)
-        , Button.secondary |> Button.content (TitleLine.iconOnly "info") |> Button.onPress (SetMenuOpen (not model.menuModel.open)) |> Button.button 
+      row 5 [fullWidth]
+        [ Button.light 
+            |> Button.content (TitleLine.iconOnly "arrow-left") 
+            |> Button.onPress CloseClicked 
+            |> Button.attributes [style "width" <| cssPx 16] 
+            |> Button.round 0
+            |> Button.button
+        , column 0 [fullWidth] 
+            [ ManifestTitle.empty 
+                |> ManifestTitle.manifest manifest 
+                |> ManifestTitle.attributes [style "align-self" "center"] 
+                |> ManifestTitle.manifestTitle ]
+        , Button.light 
+            |> Button.content (TitleLine.iconOnly "info") 
+            |> Button.onPress (SetMenuOpen (not model.menuModel.open)) 
+            |> Button.attributes [style "width" <| cssPx 16] 
+            |> Button.round 0
+            |> Button.button 
         ]
-    Nothing -> Element.none
+    Nothing -> none
 
-view : Model -> Element Msg
+view : Model -> Html Msg
 view model = 
   let 
-    menuElem =  if model.menuModel.open then el [alignRight, width (px 500), height fill] <| manifestMenu.view model
-                else Element.none
+    menuElem =  if model.menuModel.open then 
+                    el 
+                      [ style "position" "absolute"
+                      , style "top" "0", style "bottom" "0", style "right" "0"
+                      , cssWidth <| cssPx 500, fullHeight] 
+                      <| manifestMenu.view model
+                else div [Attributes.class "hide"] []
+    annotationElem = case model.annotation of
+                        Just _ -> 
+                          el 
+                            [ style "position" "absolute"
+                            , style "top" "0", style "right" "0"
+                            , style "width" <| cssPx 500
+                            , cssPadding <| cssPx 15] 
+                            <| annotationView [fullWidth] model.annotation
+                        Nothing -> div [Attributes.class "hide"] []
   in
-  column [spacing 0, width fill, height fill]
+  column 0 [fullWidth, fullHeight]
     [ titleView model
-    , el 
-      [ inFront <| el [alignRight, width (px 500), padding 15, height shrink] <| annotationView model.annotation
-      , inFront <| menuElem
-      , width fill, height fill
-      ] (Lazy.lazy osdElement model.osdElemId)
+    , row 0 [fullWidth, fullHeight] 
+      [ el [fullWidth, fullHeight] (lazy osdElement model.osdElemId)
+      , menuElem
+      , annotationElem
+      ]
     , canvasList.view model
     ]
 
 
-osdElement : String -> Element Msg
+osdElement : String -> Html Msg
 osdElement elementId =
-  Element.html <| Html.div 
-    [ Html.Attributes.id elementId
-    , Html.Attributes.class "osd_container"
-    , Html.Attributes.style "width" "100%"
-    , Html.Attributes.style "height" "100%" 
-    , Html.Attributes.style "position" "absolute"
+  Html.div 
+    [ Attributes.id elementId
+    , Attributes.class "osd_container"
+    , style "width" "100%"
+    , style "height" "100%" 
+    , style "position" "absolute"
     ] []

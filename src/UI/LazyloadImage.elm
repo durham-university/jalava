@@ -1,18 +1,18 @@
 module UI.LazyloadImage exposing (..)
 
-import Element exposing(..)
-import Element.Keyed as Keyed
-import Html
-import Html.Attributes
+import UI.Core exposing(..)
+import Html exposing(Attribute, Html, img)
+import Html.Attributes as Attributes
+import Html.Keyed as Keyed
 
-lazyloadImage : List (Attribute msg) -> { src : String, spinnerSrc : String, description : String} -> Element msg
+lazyloadImage : List (Attribute msg) -> { src : String, spinnerSrc : String, description : String} -> Html msg
 lazyloadImage attrs config =
   let
     imgAttrs =
-      [ Html.Attributes.class "lazyload"
-      , Html.Attributes.attribute "data-src" config.src
-      , Html.Attributes.src config.spinnerSrc
-      , Html.Attributes.alt config.description
+      [ Attributes.class "lazyload"
+      , Attributes.attribute "data-src" config.src
+      , Attributes.src config.spinnerSrc
+      , Attributes.alt config.description
       ]
   in
-  Keyed.el attrs (config.src, Element.html <| Html.img imgAttrs [])
+  Keyed.node "div" attrs [(config.src, img imgAttrs [])]

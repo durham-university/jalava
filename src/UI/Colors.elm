@@ -1,7 +1,18 @@
 module UI.Colors exposing(..)
 
-import Element exposing (..)
 import UI.ColorUtils exposing (..)
+
+import Html.Attributes exposing (..)
+
+type alias Color = UI.ColorUtils.Color
+
+toCss : Color -> String
+toCss (RGBA r g b a) = 
+  "rgba(" ++ 
+  (String.fromInt <| round <| 255.0 * r) ++ "," ++ 
+  (String.fromInt <| round <| 255.0 * g) ++ "," ++ 
+  (String.fromInt <| round <| 255.0 * b) ++ "," ++
+  (String.fromFloat a) ++ ")"
 
 primary : Color
 primary = normalize 1.0 (rgb 0.0 0.5 1.0)
@@ -25,7 +36,7 @@ defaultBackground : Color
 defaultBackground = rgb 1.0 1.0 1.0
 
 lightBg : Color
-lightBg = rgb 0.9 0.9 0.9
+lightBg = rgb 0.9 0.9 0.9 
 
 divider : Color
 divider = rgb 0.8 0.8 0.8

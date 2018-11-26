@@ -14,10 +14,9 @@ import Iiif.Stubs exposing(..)
 import Iiif.Utils
 import Iiif.InternalUtils
 
-import Element
-import Element.Border as Border
 import Update as U
 
+import UI.Core exposing(..)
 import UI.Button as Button
 import UI.Panel as Panel
 import UI.Toast as Toast
@@ -28,6 +27,9 @@ import UI.Tree as Tree
 import UI.Tabs as Tabs
 import UI.Colors as Colors
 import UI.Collapsible as Collapsible
+
+import Html as Html exposing (..)
+import Html.Attributes as Attributes
 
 import IiifUI.ManifestDetails as ManifestDetails
 import IiifUI.ManifestPanel as ManifestPanel
@@ -79,7 +81,7 @@ emptyModel url key =
   { key = key
   , url = url
   , selectedTab = 0
-  , collapsible = Collapsible.emptyModel |> Collapsible.id "collapsible_id" |> Collapsible.content (Element.el [Element.padding 15] textParagraphs)
+  , collapsible = Collapsible.emptyModel |> Collapsible.id "collapsible_id" |> Collapsible.content (UI.Core.el [cssPadding <| cssPx 15] textParagraphs)
   , manifestPanel = ManifestPanel.emptyModel |> ManifestPanel.id "manifestPanel_id" |> ManifestPanel.manifest testManifest
   }
 
@@ -132,28 +134,27 @@ view : Model -> Browser.Document Msg
 view model =
   { title = "Elm IIIF"
   , body = 
-      [ Element.layoutWith { options = [ Element.focusStyle { borderColor = Nothing, backgroundColor = Nothing, shadow = Nothing }] } [Element.padding 30] <| 
-          Element.column [ Element.spacing 10, Element.width Element.fill ]
-            [ tabs model 
-            , Maybe.withDefault Element.none <| tabElement model model.selectedTab
-            ]
+      [ UI.Core.column 10 [fullHeight, fullWidth]
+          [ tabs model 
+          , Maybe.withDefault UI.Core.none <| tabElement model model.selectedTab
+          ]
       ]
   }
 
-tabContent : List (Element.Element msg, Element.Element msg)
+tabContent : List (Html Msg, Html Msg)
 tabContent =
   [ (TitleLine.simple "Buttons", buttons)
   , (TitleLine.simple "Toasts", toasts)
   , (TitleLine.simple "Panels", panels)
   , (TitleLine.simple "DefinitionList", definitionList)
   , (TitleLine.simple "Tree", trees)
-  , (TitleLine.simple "Collapsible", Element.none)
+  , (TitleLine.simple "Collapsible", UI.Core.none)
   , (TitleLine.simple "Manifest Details", manifestDetails)
-  , (TitleLine.simple "Manifest Panel", Element.none)
+  , (TitleLine.simple "Manifest Panel", UI.Core.none)
   ]
 
 
-tabElement : Model -> Int -> Maybe (Element.Element Msg)
+tabElement : Model -> Int -> Maybe (Html Msg)
 tabElement model index =
   let 
     finder ls i =
@@ -167,7 +168,7 @@ tabElement model index =
           else finder tabContent index
 
 
-tabs : Model -> Element.Element Msg
+tabs : Model -> Html Msg
 tabs model = 
   let
     ts = List.indexedMap (\ind (label, _) -> (ind, label)) tabContent
@@ -181,9 +182,9 @@ tabs model =
 
 
 
-toasts : Element.Element msg
+toasts : Html msg
 toasts =
-  Element.column [Element.width Element.fill, Element.spacing 10] 
+  UI.Core.column 10 [fullHeight, fullWidth, cssPadding (cssPx 15)]
     [ Toast.primary |> Toast.content (TitleLine.simple "Primary") |> Toast.toast
     , Toast.secondary |> Toast.content (TitleLine.withIcon "bell" "Secondary") |> Toast.toast
     , Toast.error |> Toast.content (TitleLine.simple "Error") |> Toast.toast
@@ -192,9 +193,9 @@ toasts =
     , Toast.white |> Toast.content (TitleLine.simple "White") |> Toast.toast
     ]
 
-buttons : Element.Element msg
+buttons : Html msg
 buttons = 
-  Element.row [ Element.padding 30, Element.spacing 10 ] 
+  UI.Core.row 10 [cssPadding (cssPx 15)]
     [ Button.primary |> Button.content (TitleLine.withIcon "save" "Primary") |> Button.button
     , Button.secondary |> Button.content (TitleLine.simple "Secondary") |> Button.button
     , Button.danger |> Button.content (TitleLine.withIcon "trash" "Danger") |> Button.button
@@ -205,34 +206,34 @@ buttons =
     ]
 
 
-panels : Element.Element msg
+panels : Html msg
 panels =
-  Element.wrappedRow [Element.spacing 20]
-    [ Panel.default |> Panel.header (TitleLine.simple "Default panel") |> Panel.addSection (Element.text "Short section") |> Panel.addSection textParagraph |> Panel.footer (Element.text "Panel footer") |> Panel.width (Element.px 500) |> Panel.panel
-    , Panel.info |> Panel.header (TitleLine.simple "Info panel") |> Panel.content textParagraph |> Panel.footer (Element.text "Panel footer") |> Panel.width (Element.px 500) |> Panel.panel
-    , Panel.error |> Panel.header (TitleLine.withIcon "ban" "Error panel") |> Panel.content textParagraph |> Panel.footer (Element.text "Panel footer") |> Panel.width (Element.px 300) |> Panel.panel
-    , Panel.warning |> Panel.header (TitleLine.simple "Warning panel") |> Panel.content textParagraph |> Panel.footer (Element.text "Panel footer") |> Panel.width (Element.px 300) |> Panel.panel
-    , Panel.success |> Panel.header (TitleLine.simple "Success panel") |> Panel.content textParagraph |> Panel.footer (Element.text "Panel footer") |> Panel.width (Element.px 300) |> Panel.panel
-    , Panel.success |> Panel.header (TitleLine.simple "All green panel") |> Panel.content textParagraph |> Panel.footer (Element.text "Panel footer") |> Panel.fullColor |> Panel.width (Element.px 300) |> Panel.panel
-    , Panel.white |> Panel.header (TitleLine.simple "White panel") |> Panel.content textParagraph |> Panel.footer (Element.text "Panel footer") |> Panel.width (Element.px 500) |> Panel.panel
-    , Panel.default |> Panel.content textParagraph |> Panel.width (Element.px 300) |> Panel.panel
-    , Panel.default |> Panel.popup |> Panel.header (TitleLine.simple "Popup panel") |> Panel.addSection textParagraph |> Panel.footer (Element.text "Panel footer") |> Panel.width (Element.px 300) |> Panel.panel
+  UI.Core.wrappedRow 20 [cssPadding (cssPx 15)]
+    [ Panel.default |> Panel.header (TitleLine.simple "Default panel") |> Panel.addSection (text "Short section") |> Panel.addSection textParagraph |> Panel.footer (text "Panel footer") |> Panel.attributes [cssWidth <| cssPx 500] |> Panel.panel
+    , Panel.info |> Panel.header (TitleLine.simple "Info panel") |> Panel.content textParagraph |> Panel.footer (text "Panel footer") |> Panel.attributes [cssWidth (cssPx 500)] |> Panel.panel
+    , Panel.error |> Panel.header (TitleLine.withIcon "ban" "Error panel") |> Panel.content textParagraph |> Panel.footer (text "Panel footer") |> Panel.attributes [cssWidth (cssPx 300)] |> Panel.panel
+    , Panel.warning |> Panel.header (TitleLine.simple "Warning panel") |> Panel.content textParagraph |> Panel.footer (text "Panel footer") |> Panel.attributes [cssWidth (cssPx 300)] |> Panel.panel
+    , Panel.success |> Panel.header (TitleLine.simple "Success panel") |> Panel.content textParagraph |> Panel.footer (text "Panel footer") |> Panel.attributes [cssWidth (cssPx 300)] |> Panel.panel
+    , Panel.success |> Panel.header (TitleLine.simple "All green panel") |> Panel.content textParagraph |> Panel.footer (text "Panel footer") |> Panel.fullColor |> Panel.attributes [cssWidth (cssPx 300)] |> Panel.panel
+    , Panel.white |> Panel.header (TitleLine.simple "White panel") |> Panel.content textParagraph |> Panel.footer (text "Panel footer") |> Panel.attributes [cssWidth (cssPx 500)] |> Panel.panel
+    , Panel.default |> Panel.content textParagraph |> Panel.attributes [cssWidth (cssPx 300)] |> Panel.panel
+    , Panel.default |> Panel.popup |> Panel.header (TitleLine.simple "Popup panel") |> Panel.addSection textParagraph |> Panel.footer (text "Panel footer") |> Panel.attributes [cssWidth (cssPx 300)] |> Panel.panel
     ]
 
 
-definitionList : Element.Element msg
+definitionList : Html Msg
 definitionList =
-  Element.el [Element.width Element.fill] (
+  UI.Core.el [fullWidth, cssPadding (cssPx 15)] (
     DefinitionList.empty |> DefinitionList.items 
-    [ {label = "Test label", value = Element.text "Test value"}
-    , {label = "Another test label", value = Element.text "Another test value"}
+    [ {label = "Test label", value = text "Test value"}
+    , {label = "Another test label", value = text "Another test value"}
     , {label = "Longer value", value = textParagraphs}
     ] |> DefinitionList.definitionList
   )
 
 type TreeNode = Node String (List TreeNode)
 
-tree : Tree.TreeConfig TreeNode msg -> Element.Element msg
+tree : Tree.TreeConfig TreeNode msg -> Html msg
 tree treeConfig = 
   let
     roots =
@@ -258,51 +259,54 @@ tree treeConfig =
       Node label_ children_ -> label_ == "Item B"
   in 
     treeConfig
-      |> Tree.attributes [Element.width (Element.px 200)]
+      |> Tree.attributes [cssWidth (cssPx 200)]
       |> Tree.rootItems roots
       |> Tree.label label
       |> Tree.children children
       |> Tree.selected selected
       |> Tree.tree
 
-trees : Element.Element msg
+trees : Html msg
 trees =
-  Element.row [Element.spacing 30]
+  UI.Core.row 30 [cssPadding (cssPx 15)]
     [ tree (Tree.empty |> Tree.icon (\_ -> Just <| Icon.icon "folder" []))
-    , tree (Tree.empty |> Tree.color Colors.secondary )
-    , tree (Tree.empty |> Tree.color Colors.defaultTextColor |> Tree.selectColor Colors.primary )
+    , tree (Tree.empty |> Tree.color "Secondary" )
+--    , tree (Tree.empty |> Tree.color Colors.defaultTextColor |> Tree.selectColor Colors.primary )
     ]
 
-textParagraphs : Element.Element msg
+textParagraphs : Html msg
 textParagraphs = 
-  Element.textColumn [Element.spacing 10, Element.width Element.fill] 
+  UI.Core.column 10 []
     [ textParagraph, textParagraph ]
 
-textParagraph : Element.Element msg
-textParagraph = Element.paragraph [] [Element.text loremIpsum]
+textParagraph : Html msg
+textParagraph = p [] [text loremIpsum]
 
 loremIpsum : String
 loremIpsum = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam iaculis suscipit arcu ut accumsan. Aenean nec dolor aliquam dui tristique malesuada egestas eget risus. Vivamus dapibus nibh ut orci pretium mollis. Fusce lacinia eros id libero hendrerit volutpat. Nullam lobortis lacus a ultricies pulvinar. Cras placerat egestas porttitor."
 
-collapsibleView : Model -> Element.Element Msg
+collapsibleView : Model -> Html Msg
 collapsibleView model =
   Panel.default |> Panel.header (TitleLine.simple "Default panel") 
                 |> Panel.addDirectSection (Collapsible.view model.collapsible)
                 |> Panel.footer (Collapsible.toggleButton model.collapsible)
-                |> Panel.width (Element.px 500) |> Panel.panel |> Element.map CollapsibleMsg
+                |> Panel.attributes [cssWidth (cssPx 500)] |> Panel.panel |> Html.map CollapsibleMsg
+                |> UI.Core.el [cssPadding (cssPx 15)]
 
 
-manifestDetails : Element.Element msg
+manifestDetails : Html msg
 manifestDetails =
   ManifestDetails.empty
     |> ManifestDetails.manifest testManifest
     |> ManifestDetails.includeIiifLink
     |> ManifestDetails.manifestDetails
+    |> UI.Core.el [cssPadding (cssPx 15)]
 
 
-manifestPanel : Model -> Element.Element Msg
+manifestPanel : Model -> Html Msg
 manifestPanel model =
-  model.manifestPanel |> ManifestPanel.view |> Element.map ManifestPanelMsg
+  model.manifestPanel |> ManifestPanel.view |> Html.map ManifestPanelMsg
+    |> UI.Core.el [cssPadding (cssPx 15), cssWidth <| cssPx 500]
 
 testIiif : Iiif
 testIiif = Iiif.Utils.empty |> Iiif.InternalUtils.addManifest testManifest
