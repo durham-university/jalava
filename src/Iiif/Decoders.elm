@@ -210,7 +210,8 @@ manifestLinkDecoder =
 
 manifestStubDecoder : Decode.Decoder Manifest
 manifestStubDecoder = 
-  Decode.succeed stubManifest
+  Decode.succeed (\_ -> stubManifest)
+    |> required "@type" (Decode.string |> requiredValue "sc:Manifest")
     |> required "@id" Decode.string
     |> optional "label" jsonLdValueStringDecoder Nothing
     |> optional "logo" jsonLdValueStringDecoder Nothing
@@ -237,27 +238,65 @@ maybeAttr maybeValue name = case maybeValue of
 
 collectionDecoder : Decode.Decoder (CollectionUri, Iiif)
 collectionDecoder = 
-  let 
+  let
+    subItems = Decode.succeed (\a b c -> a ++ b ++ c)
+      |> optional "collections" (Decode.list collectionOrManifestStubDecoder) []
+      |> optional "manifests" (Decode.list collectionOrManifestStubDecoder) []
+      |> optional "members" (Decode.list collectionOrManifestStubDecoder) []
+    
+    collectionFilter : CollectionOrManifest -> Maybe Collection
+    collectionFilter item =
+      case item of
+        JustCollection c -> Just c
+        _ -> Nothing
+
+    manifestFilter : CollectionOrManifest -> Maybe Manifest
+    manifestFilter item =
+      case item of
+        JustManifest m -> Just m
+        _ -> Nothing
+
+    subCollections = Decode.map (List.filterMap collectionFilter) subItems
+
+    manifests = Decode.map (List.filterMap manifestFilter) subItems
+
     collection = Decode.succeed Collection
       |> required "@id" Decode.string
       |> optional "label" jsonLdValueStringDecoder Nothing
       |> optional "logo" jsonLdValueStringDecoder Nothing
-      |> optional "collections" (Decode.list (Decode.field "@id" Decode.string)) []
-      |> optional "manifests" (Decode.list (Decode.field "@id" Decode.string)) []
+      |> custom (Decode.map (List.map .id) subCollections)
+      |> custom (Decode.map (List.map .id) manifests)
       |> hardcoded Full
     collectionUri = Decode.map .id collection
-    subCollections = Decode.succeed Dict.fromList
-      |> optional "collections" (Decode.list (Decode.map (\c -> (c.id, c)) collectionStubDecoder)) []
-    allCollections = Decode.map2 (\c d -> Dict.insert c.id c d) collection subCollections
-    allManifests = Decode.succeed Dict.fromList
-      |> optional "manifests" (Decode.list (Decode.map (\m -> (m.id, m)) manifestStubDecoder)) []
-    iiif = Decode.map2 (\c m -> Iiif c m Dict.empty) allCollections allManifests
+
+    subCollectionsDict = subCollections
+                          |> Decode.map (List.map (\c -> (c.id, c)))
+                          |> Decode.map Dict.fromList    
+    
+    collectionsDict = Decode.map2 (\c d -> Dict.insert c.id c d) collection subCollectionsDict
+
+    manifestsDict = manifests
+                      |> Decode.map (List.map (\m -> (m.id, m)))
+                      |> Decode.map Dict.fromList
+
+    iiif = Decode.map2 (\c m -> Iiif c m Dict.empty) collectionsDict manifestsDict
   in
   Decode.map2 Tuple.pair collectionUri iiif
 
+type CollectionOrManifest = JustCollection Collection
+                          | JustManifest Manifest
+
+collectionOrManifestStubDecoder : Decode.Decoder  CollectionOrManifest
+collectionOrManifestStubDecoder =
+  Decode.oneOf
+    [ Decode.map JustCollection collectionStubDecoder
+    , Decode.map JustManifest manifestStubDecoder
+    ]
+
 collectionStubDecoder : Decode.Decoder Collection
 collectionStubDecoder =
-  Decode.succeed stubCollection
+  Decode.succeed (\_ -> stubCollection)
+    |> required "@type" (Decode.string |> requiredValue "sc:Collection")
     |> required "@id" Decode.string
     |> optional "label" jsonLdValueStringDecoder Nothing
     |> optional "logo" jsonLdValueStringDecoder Nothing
