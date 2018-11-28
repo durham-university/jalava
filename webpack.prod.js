@@ -10,7 +10,8 @@ module.exports = {
   },
 
   plugins : [
-    new CopyWebpackPlugin([{from: 'node_modules/openseadragon/build/openseadragon/images', to :'osd/'}])
+    new CopyWebpackPlugin([{from: 'node_modules/openseadragon/build/openseadragon/images', to :'osd/'}]),
+    new CopyWebpackPlugin([{from: 'public', to :'./'}])
   ],
 
   module: {
