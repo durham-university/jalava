@@ -1,14 +1,19 @@
 {
-  "name": "elm_iiif",
-  "version": "1.0.0",
-  "description": "",
+  "name": "jalava",
+  "version": "0.1.0",
+  "author": "Olli Lyytinen",
+  "description": "Prototype IIIF Viewer written in Elm",
+  "keywords": [
+    "iiif",
+    "elm"
+  ],
+  "homepage": "https://github.com/durham-university/jalava",
+  "license": "MIT",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
+  "devDependencies": {
     "copy-webpack-plugin": "^4.6.0",
     "css-loader": "^1.0.1",
     "elm-webpack-loader": "^5.0.0",

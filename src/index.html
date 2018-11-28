@@ -17,7 +17,13 @@
 
 <body>
   <div id="elm-app"></div>
-  <script async src="app.js"></script>
+  <script src="app.js"></script>
+  <script>
+    mountJalava(
+      document.getElementById("elm-app"),
+      {rootUrl: "http://ryanfb.github.io/iiif-universe/iiif-universe.json"}
+    );
+  </script>
 </body>
 
 </html>
