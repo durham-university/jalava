@@ -7,6 +7,8 @@ import Json.Encode as Encode
 import Iiif.Types exposing(..)
 import Iiif.Stubs exposing(..)
 
+import Murmur3
+
 sequenceDecoder : Decode.Decoder Sequence
 sequenceDecoder = 
   Decode.succeed Sequence
@@ -105,8 +107,23 @@ serviceSizeDecoder =
 
 rangeDecoder : Decode.Decoder Range
 rangeDecoder =
-  Decode.succeed Range
-    |> required "@id" Decode.string
+  let 
+    withDefaultId maybeId viewingHint label canvases ranges =
+      case maybeId of
+        Just id -> Range id viewingHint label canvases ranges
+        Nothing -> 
+          let 
+            id = 
+              ((Maybe.withDefault "" label) :: canvases)
+              |> List.append ranges
+              |> String.join ""
+              |> Murmur3.hashString 0
+              |> String.fromInt
+          in Range id viewingHint label canvases ranges
+  in
+  Decode.succeed withDefaultId
+    -- "@id" is required in range according to spec but try to there are manifests out there which don't include it
+    |> optional "@id" (Decode.nullable Decode.string) Nothing
     |> optional "viewingHint" jsonLdValueStringDecoder Nothing
     |> optional "label" jsonLdValueStringDecoder Nothing
     |> optional "canvases" (Decode.list Decode.string) []
