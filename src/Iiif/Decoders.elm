@@ -216,6 +216,13 @@ manifestStubDecoder =
     |> optional "label" jsonLdValueStringDecoder Nothing
     |> optional "logo" jsonLdValueStringDecoder Nothing
 
+manifestStubRelaxedDecoder : Decode.Decoder Manifest
+manifestStubRelaxedDecoder = 
+  Decode.succeed stubManifest
+    |> required "@id" Decode.string
+    |> optional "label" jsonLdValueStringDecoder Nothing
+    |> optional "logo" jsonLdValueStringDecoder Nothing
+
 
 decodeListOrSingle : Decode.Decoder a -> Decode.Decoder (List a)
 decodeListOrSingle valueDecoder =
@@ -240,9 +247,9 @@ collectionDecoder : Decode.Decoder (CollectionUri, Iiif)
 collectionDecoder = 
   let
     subItems = Decode.succeed (\a b c -> a ++ b ++ c)
-      |> optional "collections" (Decode.list collectionOrManifestStubDecoder) []
-      |> optional "manifests" (Decode.list collectionOrManifestStubDecoder) []
-      |> optional "members" (Decode.list collectionOrManifestStubDecoder) []
+      |> optional "collections" (Decode.list <| collectionOrManifestStubDecoder (Just <| Decode.map JustCollection collectionStubRelaxedDecoder)) []
+      |> optional "manifests" (Decode.list <| collectionOrManifestStubDecoder (Just <| Decode.map JustManifest manifestStubRelaxedDecoder)) []
+      |> optional "members" (Decode.list <| collectionOrManifestStubDecoder Nothing) []
     
     collectionFilter : CollectionOrManifest -> Maybe Collection
     collectionFilter item =
@@ -286,17 +293,24 @@ collectionDecoder =
 type CollectionOrManifest = JustCollection Collection
                           | JustManifest Manifest
 
-collectionOrManifestStubDecoder : Decode.Decoder  CollectionOrManifest
-collectionOrManifestStubDecoder =
-  Decode.oneOf
+collectionOrManifestStubDecoder : Maybe (Decode.Decoder CollectionOrManifest) -> Decode.Decoder CollectionOrManifest
+collectionOrManifestStubDecoder guessDecoder =
+  Decode.oneOf <|
     [ Decode.map JustCollection collectionStubDecoder
     , Decode.map JustManifest manifestStubDecoder
-    ]
+    ] ++ (Maybe.map List.singleton guessDecoder |> Maybe.withDefault [])
 
 collectionStubDecoder : Decode.Decoder Collection
 collectionStubDecoder =
   Decode.succeed (\_ -> stubCollection)
     |> required "@type" (Decode.string |> requiredValue "sc:Collection")
+    |> required "@id" Decode.string
+    |> optional "label" jsonLdValueStringDecoder Nothing
+    |> optional "logo" jsonLdValueStringDecoder Nothing
+
+collectionStubRelaxedDecoder : Decode.Decoder Collection
+collectionStubRelaxedDecoder =
+  Decode.succeed stubCollection
     |> required "@id" Decode.string
     |> optional "label" jsonLdValueStringDecoder Nothing
     |> optional "logo" jsonLdValueStringDecoder Nothing
