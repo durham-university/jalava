@@ -13,6 +13,6 @@ lazyloadImage attrs config =
       , Attributes.attribute "data-src" config.src
       , Attributes.src config.spinnerSrc
       , Attributes.alt config.description
-      ]
+      ] ++ attrs
   in
-  Keyed.node "div" attrs [(config.src, img imgAttrs [])]
+  Keyed.node "div" [] [(config.src, img imgAttrs [])]
