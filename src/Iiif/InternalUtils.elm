@@ -40,7 +40,7 @@ getObject key default dict =
   in
     case maybe of
       Just obj -> obj
-      Nothing -> default key (Just "Error: Not found") Nothing
+      Nothing -> default key Nothing Nothing
 
 
 aliasManifest : Manifest -> ManifestUri -> Iiif -> Iiif

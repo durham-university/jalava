@@ -2,19 +2,21 @@ module CollectionView exposing(Model, Msg(..), OutMsg(..), init, view, update, e
 
 import Url
 import Json.Decode as Decode
-import Html exposing (..)
-import Html.Attributes exposing (..)
-import Html.Events exposing (onClick)
 
-import Bootstrap.Grid as Grid
-import Bootstrap.Grid.Row as Row
-import Bootstrap.Grid.Col as Col
-import Bootstrap.Button as Button
+import UI.Core exposing(..)
+import UI.Fonts exposing(..)
+
+import Html exposing(..)
+import Html.Attributes as Attributes
+import Html.Events as Events
+
+import IiifUI.Spinner as Spinner
+import IiifUI.IiifLink exposing(iiifLink)
 
 import ManifestList
 
 import Update as U
-import Utils exposing(iiifLink, pluralise, spinner)
+import Utils exposing(pluralise)
 
 import Iiif.Types exposing(..)
 import Iiif.Utils exposing(getManifest, getCollection, isStub, collectionToString)
@@ -53,7 +55,11 @@ manifestList =
 
 
 component : U.Component Model Msg OutMsg
-component = { init = init, emptyModel = emptyModel, update = update, view = view }
+component = { init = init, emptyModel = emptyModel, update = update, view = view, subscriptions = subscriptions }
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =  manifestList.subscriptions model
 
 
 init : Decode.Value -> ( Model, Cmd Msg, List OutMsg )
@@ -98,20 +104,24 @@ setManifestListCollection maybeCollectionUri model =
 
 view : Model -> Html Msg
 view model = 
-  div [ class "collection_view" ] <|
-    case model.collection of
-      Just collectionUri ->
-        let
-          collection = getCollection model.iiif collectionUri
-          logoHtml = case collection.logo of
-            Just logo -> [div [class "logo"] [ img [src logo] [] ] ]
-            Nothing -> []
-          spinnerHtml = case isStub collection of
-            True -> [spinner]
-            False -> []
-        in
-          [ Grid.row [Row.attrs [class "title_row"]] [ Grid.col [] (logoHtml ++ [h1 [] [ text <| collectionToString collection ]] ++ spinnerHtml ) ]
-          , Grid.row [Row.attrs [class "info_row"]]  [ Grid.col [] [text <| pluralise (List.length collection.manifests) "manifest - " "manifests - ", iiifLink collectionUri]]
-          , Grid.row [Row.attrs [class "manifests row"]] [ Grid.col [] [manifestList.view model] ]
+  case model.collection of
+    Just collectionUri ->
+      let
+        collection = getCollection model.iiif collectionUri
+        logoElem = case collection.logo of
+          Just logo -> Html.img [Attributes.height 60, Attributes.src logo, Attributes.alt "logo"] []
+          Nothing -> none
+        spinnerElem = case isStub collection of
+          True -> Spinner.spinner
+          False -> none
+      in
+        column 0 [fullHeight, fullWidth]
+          [ row 5 (textBody ++ [fullWidth, Attributes.style "font-size" "24px"]) [logoElem, text <| collectionToString collection, spinnerElem]
+          , row 5 [fullWidth, Attributes.style "justify-content" "flex-end"]
+            [ el textBody (text <| pluralise (List.length collection.manifests) "manifest - " "manifests - ")
+            , el [] (iiifLink collectionUri)
+            ]
+          , el [Attributes.style "padding-top" <| cssPx 10, fullHeight, fullWidth] (manifestList.view model)
           ]
-      Nothing -> []
+    Nothing -> none
+ 

@@ -3,24 +3,25 @@ port module Main exposing(..)
 import Browser
 import Browser.Navigation as Nav
 
+import Html as Html exposing(Html)
+import Html.Attributes as Attributes exposing(style)
+
 import Http
 import Url
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Set exposing(Set)
 
-import Html exposing (..)
-import Html.Attributes exposing (..)
-import Bootstrap.Grid as Grid
-import Bootstrap.Grid.Row as Row
-import Bootstrap.Grid.Col as Col
-import Bootstrap.Alert as Alert
+import UI.Core exposing(..)
+import UI.Toast as Toast
+import UI.TitleLine as TitleLine
+import UI.Screen exposing(screen)
 
 import Utils exposing(..)
 
 import Iiif.Types exposing(..)
 import Iiif.Loading exposing(loadManifest, loadCollection, loadAnnotationList)
-import Iiif.Utils
+import Iiif.Utils exposing(getManifest)
 import UriMapper exposing (UriMapper)
 import Update as U
 
@@ -55,7 +56,7 @@ type Msg
   | ManifestViewMsg ManifestView.Msg
   | IiifMsg Iiif.Loading.Msg
   | IiifNotification Iiif.Loading.Notification
-  | AlertMsg Int Alert.Visibility
+  | CloseError Int
   | ShowAnnotation (Maybe AnnotationUri)
 
 type OutMsg
@@ -67,13 +68,16 @@ type OutMsg
   | CanvasSelected ManifestUri CanvasUri
   | CanvasOpened ManifestUri CanvasUri
   | CloseViewer
+  | RequestIiif (Iiif -> Msg)
 
 
 collectionTree =
   U.subComponent 
     { component = CollectionTree.component 
-    , unwrapModel = \model -> let subModel = model.collectionTreeModel in {subModel | iiif = model.iiif}
-    , wrapModel = \model subModel -> { model | collectionTreeModel = { subModel | iiif = Iiif.Utils.empty }, errors = model.errors ++ subModel.errors}
+    , unwrapModel = \model -> model.collectionTreeModel
+    , wrapModel = \model subModel -> 
+        if List.isEmpty subModel.errors then { model | collectionTreeModel = subModel }
+        else {model | collectionTreeModel = { subModel | errors = []}, errors = model.errors ++ subModel.errors }
     , wrapMsg = CollectionTreeMsg
     , outEvaluator = \msgSub model ->
         case msgSub of
@@ -99,8 +103,8 @@ collectionView =
 manifestView = 
   U.subComponent 
     { component = ManifestView.component 
-    , unwrapModel = \model -> let subModel = model.manifestViewModel in {subModel | iiif = model.iiif}
-    , wrapModel = \model subModel -> { model | manifestViewModel = { subModel | iiif = Iiif.Utils.empty }, errors = model.errors ++ subModel.errors}
+    , unwrapModel = .manifestViewModel
+    , wrapModel = \model subModel -> { model | manifestViewModel = subModel }
     , wrapMsg = ManifestViewMsg
     , outEvaluator = \msgSub model ->
         case msgSub of
@@ -109,6 +113,7 @@ manifestView =
           ManifestView.LoadAnnotationList uri -> (model, Cmd.none, [LoadAnnotationList uri])
           ManifestView.CanvasOpened manifestUri canvasUri -> (model, Cmd.none, [CanvasOpened manifestUri canvasUri])
           ManifestView.CloseViewer -> (model, Cmd.none, [CloseViewer])
+          ManifestView.RequestIiif iiifMsg -> (model, Cmd.none, [RequestIiif (ManifestViewMsg << iiifMsg)])
     }
 
 
@@ -170,7 +175,7 @@ parseUrl url model =
   in
     collectionTree.updater (CollectionTree.SelectPath path) newModel
       |> U.chain (collectionView.updater (CollectionView.SetCollection (List.head path)))
-      |> U.chain (manifestView.updater (ManifestView.SetManifestAndCanvas selectedManifest selectedCanvas))
+      |> U.chain (manifestView.updater (ManifestView.SetManifestAndCanvas (Maybe.map (getManifest model.iiif) selectedManifest) selectedCanvas))
 
 
 
@@ -183,7 +188,7 @@ updateUrl model =
       |> List.map model.uriMapper.deflate
       |> String.join "/"
     viewManifest = 
-      [model.manifestViewModel.manifest, model.manifestViewModel.canvas]
+      [Maybe.map .id model.manifestViewModel.manifest, model.manifestViewModel.canvas]
       |> List.filterMap identity
       |> List.map model.uriMapper.deflate
       |> String.join "/"
@@ -237,11 +242,11 @@ outMsgEvaluator msg model =
         |> U.chain2 updateUrl
         |> U.evalOut2 outMsgEvaluator
     ManifestSelected uri ->
-        manifestView.updater (ManifestView.SetManifest (Just uri)) {model | screen = Viewer}
+        manifestView.updater (ManifestView.SetManifest (Just <| getManifest model.iiif uri)) {model | screen = Viewer}
         |> U.chain2 updateUrl
         |> U.evalOut2 outMsgEvaluator
     CanvasSelected manifestUri canvasUri -> 
-        manifestView.updater (ManifestView.SetManifestAndCanvas (Just manifestUri) (Just canvasUri)) {model | screen = Viewer}
+        manifestView.updater (ManifestView.SetManifestAndCanvas (Just <| getManifest model.iiif manifestUri) (Just canvasUri)) {model | screen = Viewer}
         |> U.chain2 updateUrl
         |> U.evalOut2 outMsgEvaluator
     CloseViewer -> 
@@ -252,6 +257,9 @@ outMsgEvaluator msg model =
         (model, Cmd.none, [])
         |> U.chain2 updateUrl
         |> U.evalOut2 outMsgEvaluator
+    RequestIiif iiifMsg ->
+        update (iiifMsg model.iiif) model
+
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -269,10 +277,8 @@ update msg model =
     UrlChanged url -> 
       if url == model.url then (model, Cmd.none)
       else parseUrl url model |> U.evalOut2 outMsgEvaluator
-    AlertMsg index visibility->
-      if visibility == Alert.closed then
-        ({model | errors = arrayRemove index model.errors}, Cmd.none)
-      else (model, Cmd.none)
+    CloseError index ->
+      ({model | errors = arrayRemove index model.errors}, Cmd.none)
     CollectionTreeMsg collectionTreeMsg ->
       (model, Cmd.none, [])
         |> U.chain (collectionTree.updater collectionTreeMsg)
@@ -287,7 +293,7 @@ update msg model =
         |> U.evalOut2 outMsgEvaluator
     ShowAnnotation maybeAnnotationUri ->
       (model, Cmd.none, [])
-        |> U.chain (manifestView.updater (ManifestView.ShowAnnotationPort maybeAnnotationUri))
+        |> U.chain (manifestView.updater (ManifestView.ShowAnnotationPort model.iiif maybeAnnotationUri))
         |> U.evalOut2 outMsgEvaluator
     IiifMsg iiifMsg ->
       let (newModel, maybeNotification) = Iiif.Loading.update iiifMsg model
@@ -303,38 +309,45 @@ update msg model =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions _ = Sub.batch
+subscriptions model = Sub.batch
   [ inPortLazyLoadManifest LazyLoadManifest
   , inPortShowAnnotation ShowAnnotation
+  , collectionTree.subscriptions model
+  , collectionView.subscriptions model
+  , manifestView.subscriptions model
   ]
 
 
-alertDialog : Int -> String -> Html Msg
-alertDialog index message = 
-  Alert.config
-    |> Alert.danger
-    |> Alert.dismissable (AlertMsg index)
-    |> Alert.children [text message]
-    |> Alert.view Alert.shown
-
 view : Model -> Browser.Document Msg
 view model =
-  let
-    browserHide = if model.screen == Browser then "" else " hide"
-    manifestViewHide = if model.screen == Viewer then "" else " hide"
-  in
   { title = "Elm IIIF"
   , body = 
-    [ div [ class <| "manifest_browser_wrapper" ++ browserHide]
-        [ Grid.containerFluid [] 
-          [ Grid.row []
-            [ Grid.col [ Col.xs4, Col.attrs [ class "col_collection_tree" ] ] [ collectionTree.view model ]
-            , Grid.col [ Col.xs8, Col.attrs [ class "col_collection_view" ] ] [ collectionView.view model ]
-            ]
-          ]
-        ]
-    , div [ class <| "manifest_view_wrapper" ++ manifestViewHide] [ manifestView.view model ]
-    , div [ class "error_overlay" ] (List.indexedMap alertDialog model.errors)
-    , div [ style "display" "none" ] [ div [ id "annotation_overlay_wrapper"] [div [id "annotation_overlay"] []]]
+    [ screen (model.screen == Browser) (browserView model)
+    , screen (model.screen == Viewer) (manifestView.view model)
+    , errorsView model
+    , Html.div [ Attributes.style "display" "none" ] [ Html.div [ Attributes.id "annotation_overlay_wrapper"] [Html.div [Attributes.id "annotation_overlay"] []]]
     ]
   }
+
+browserView : Model -> Html Msg
+browserView model =
+  row 0 [fullWidth, fullHeight]
+    [ el [style "flex-grow" "1", fullHeight, style "flex-shrink" "0", style "flex-basis" "0", style "overflow" "scroll"] (collectionTree.view model)
+    , el [style "flex-grow" "2", fullHeight, style "flex-shrink" "0", style "flex-basis" "0", cssPadding <| cssPx 10, style "overflow-y" "scroll"] (collectionView.view model)
+    ]
+
+errorsView : Model -> Html Msg
+errorsView model =
+  let
+    errorToast index content =
+      Toast.error |> Toast.content (TitleLine.simple content) |> Toast.onClose (CloseError index) |> Toast.toast  
+  in
+    if List.length model.errors > 0 then
+      column 15 
+        [ cssPadding4 (cssPx 15) (cssPx 15) (cssPx 0) (cssPx 15)
+        , Attributes.style "position" "absolute"
+        , Attributes.style "top" "0"
+        , Attributes.style "left" "0"
+        , Attributes.style "right" "0"
+        ] (List.indexedMap errorToast model.errors)
+    else none

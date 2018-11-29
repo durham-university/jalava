@@ -1,7 +1,8 @@
 module Update exposing(..)
 
 import Json.Decode as Decode
-import Html exposing (Html)
+
+import Html as Html exposing(Html)
 
 catCmd : Cmd msg -> Cmd msg -> Cmd msg
 catCmd a b =
@@ -164,6 +165,9 @@ evalOut2 evaluator (model, cmd, out) =
 ignoreOut : ( model, Cmd msg, List outMsg ) -> ( model, Cmd msg )
 ignoreOut (model, cmd, out) = (model, cmd)
 
+noSideEffects : model -> (model, Cmd msg, List outMsg)
+noSideEffects model = (model, Cmd.none, [])
+
 
 
 type alias Component model msg outMsg =
@@ -171,6 +175,7 @@ type alias Component model msg outMsg =
   , emptyModel : model
   , update : msg -> model -> ( model, Cmd msg, List outMsg )
   , view : model -> Html msg
+  , subscriptions : model -> Sub msg
   }
 
 type alias ComponentAdapter modelParent modelSub msgParent msgSub outMsgParent outMsgSub =
@@ -188,6 +193,7 @@ type alias ComponentMount modelParent modelSub msgParent msgSub outMsgParent out
   , updater : msgSub -> modelParent -> (modelParent, Cmd msgParent, List outMsgParent)
   , init : Decode.Value -> modelParent -> (modelParent, Cmd msgParent, List outMsgParent)
   , view : modelParent -> Html msgParent
+  , subscriptions : modelParent -> Sub msgParent
   }
 
 subComponent :
@@ -206,6 +212,9 @@ subComponent s =
 
     view : modelParent -> Html msgParent
     view model = Html.map s.wrapMsg <| s.component.view (s.unwrapModel model)
+
+    subscriptions : modelParent -> Sub msgParent
+    subscriptions model = Sub.map s.wrapMsg <| s.component.subscriptions (s.unwrapModel model)
   in
   { component = s.component
   , unwrap = s.unwrapModel
@@ -213,5 +222,6 @@ subComponent s =
   , updater = updater
   , init = init
   , view = view
+  , subscriptions = subscriptions
   }
 
