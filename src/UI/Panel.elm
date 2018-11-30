@@ -116,7 +116,7 @@ panelSection config counter content_ =
                   ] ++ borderStyle
   in
     case content_ of
-      PaddedContent e -> el (commonStyle ++ [cssPadding <| cssPx 15]) e
+      PaddedContent e -> el (commonStyle ++ [cssPadding <| cssPx 15, fullWidth]) e
       DirectContent e -> e
 
 

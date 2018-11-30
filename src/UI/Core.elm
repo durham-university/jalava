@@ -2,6 +2,7 @@ module UI.Core exposing(..)
 
 import Html as Html exposing(Html, Attribute, div, text)
 import Html.Attributes as Attributes
+import Html.Keyed as Keyed
 
 row : Int -> (List (Attribute msg)) -> (List (Html msg)) -> Html msg
 row spacing attrs items = 
@@ -34,6 +35,9 @@ wrappedColumn spacing attrs items =
 
 el : List (Attribute msg) -> Html msg -> Html msg
 el attrs child = div ([Attributes.class "el"] ++ attrs) [child]
+
+keyedEl : String -> List (Attribute msg) -> Html msg -> Html msg
+keyedEl key attrs child = Keyed.node "div" ([Attributes.class "el"] ++ attrs) [(key, child)]
 
 button : List (Attribute msg) -> Html msg -> Html msg
 button attrs label = el (attrs ++ [Attributes.attribute "role" "button"]) label

@@ -21,6 +21,7 @@ type alias CollapsibleConfig msg=
   , hideLabel : Html msg
   , showLabel : Html msg
   , collapseTime : Float
+  , attributes : List (Attribute msg)
   }
 
 type State = Visible | CollapseStart | Collapsing | Hidden | OpenPreStart | OpenStart | Opening
@@ -56,6 +57,7 @@ emptyConfig =
   , hideLabel = text "Hide"
   , showLabel = text "Show"
   , collapseTime = 200
+  , attributes = []
   }
 
 content : Html Msg -> Model -> Model
@@ -68,6 +70,9 @@ emptyModel  =
   , collapseHeight = 0
   , state = Visible
   }
+
+attributes : List (Attribute Msg) -> Model -> Model
+attributes attrs ({config} as model) = {model | config = {config | attributes = config.attributes ++ attrs} }
 
 labels : Html Msg -> Html Msg -> Model -> Model
 labels showLabel hideLabel ({config} as model) =
@@ -132,8 +137,10 @@ view model =
       Opening -> [cssHeight (cssPx <| round model.collapseHeight)]
 --      _ -> [Css.height (px height)]
   in
-    el ([Attributes.style "overflow-y" "hidden", Attributes.style "transition" ("height " ++ (String.fromFloat model.config.collapseTime) ++ "ms")] ++ heightAttribute)
-        <| el [idAttribute, Attributes.style "flex-shrink" "0"] model.config.content
+    el ( [ Attributes.style "overflow-y" "hidden"
+         , Attributes.style "transition" ("height " ++ (String.fromFloat model.config.collapseTime) ++ "ms")
+         ] ++ heightAttribute ++ model.config.attributes )
+        <| el [idAttribute, Attributes.style "flex-shrink" "0", fullWidth, fullHeight] model.config.content
 
 toggleButtonInfo : Model -> (Msg, Html Msg)
 toggleButtonInfo model =

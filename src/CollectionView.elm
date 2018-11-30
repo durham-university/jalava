@@ -121,7 +121,7 @@ view model =
             [ el textBody (text <| pluralise (List.length collection.manifests) "manifest - " "manifests - ")
             , el [] (iiifLink collectionUri)
             ]
-          , el [Attributes.style "padding-top" <| cssPx 10, fullHeight, fullWidth] (manifestList.view model)
+          , el [Attributes.style "padding-top" <| cssPx 10, Attributes.style "padding-bottom" <| cssPx 15, fullHeight, fullWidth] (manifestList.view model)
           ]
     Nothing -> none
  

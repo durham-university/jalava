@@ -61,7 +61,11 @@ init flags = (emptyModel, Cmd.none, [])
 emptyModel : Model
 emptyModel = 
   { manifest = Nothing
-  , collapsible = Collapsible.emptyModel |> Collapsible.closed |> Collapsible.labels (text "Show manifest details") (text "Hide manifest details")
+  , collapsible = 
+      Collapsible.emptyModel 
+        |> Collapsible.closed 
+        |> Collapsible.labels (text "Show manifest details") (text "Hide manifest details")
+        |> Collapsible.attributes [fullWidth]
   }
 
 subscriptions : Model -> Sub Msg
@@ -95,7 +99,7 @@ updateManifestInfo model =
     Just manifest_ -> 
       let 
         manifestInfo = ManifestDetails.empty |> ManifestDetails.manifest manifest_ |> ManifestDetails.manifestDetails
-        wrappedInfo = Panel.panelSection Panel.empty 1 (Panel.PaddedContent manifestInfo)
+        wrappedInfo = Panel.panelSection Panel.default 1 (Panel.PaddedContent manifestInfo)
       in 
         {model | collapsible = model.collapsible |> Collapsible.content wrappedInfo}
     Nothing -> {model | collapsible = model.collapsible |> Collapsible.content none}
@@ -138,6 +142,7 @@ view_ model =
         |> Panel.addDirectSection (model.collapsible |> Collapsible.view |> Html.map CollapsibleMsg)
         |> Panel.footer (footer model)
         |> Panel.panel 
+        |> keyedEl manifest_.id [fullWidth]
 
 
 canvasLine : Model -> Html Msg
