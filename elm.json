@@ -22,7 +22,6 @@
             "jinjor/elm-xml-parser": "2.0.0"
         },
         "indirect": {
-            "Skinney/murmur3": "2.0.8",
             "avh4/elm-color": "1.0.0",
             "elm/parser": "1.1.0",
             "rtfeldman/elm-hex": "1.0.0"
