@@ -71,7 +71,7 @@ grid attrs columns data =
       List.indexedMap (dataValue rowIndex value) columns
 
   in
-  div ([Attributes.style "display" "grid"] ++ attrs)
+  div ([Attributes.class "grid"] ++ attrs)
                 <| (List.indexedMap gridColumn columns) ++
                     (List.concat <| List.indexedMap dataRow data)
 

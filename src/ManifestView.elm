@@ -269,7 +269,7 @@ titleView model =
             |> Button.attributes [style "width" <| cssPx 16] 
             |> Button.round 0
             |> Button.button
-        , column 0 [fullWidth] 
+        , column 0 [fullWidth, style "flex-shrink" "1"] 
             [ ManifestTitle.empty 
                 |> ManifestTitle.manifest manifest 
                 |> ManifestTitle.attributes [style "align-self" "center"] 
@@ -305,7 +305,7 @@ view model =
   in
   column 0 [fullWidth, fullHeight]
     [ titleView model
-    , row 0 [fullWidth, fullHeight] 
+    , row 0 [fullWidth, fullHeight, style "flex-shrink" "1"] 
       [ el [fullWidth, fullHeight] (lazy osdElement model.osdElemId)
       , menuElem
       , annotationElem

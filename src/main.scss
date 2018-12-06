@@ -24,7 +24,7 @@ $color-dark: rgba(77,77,77,1);
   &.bgDesatHigh { background-color: myDesat($baseColor, 0.9); }
   &.bgAlpha { background-color: transparentize($baseColor, 0.5); }
   &.bgAlphaHigh { background-color: transparentize($baseColor, 0.8); }
-  &.bgHoverOnly { background-color: unset; }
+  &.bgHoverOnly { background-color: transparent; }
   &.bgHover:hover, &.bgHoverOnly:hover {
     background-color: darken($baseColor, 20);
     &.bgDesat { background-color: myDesat($baseColor, 0.4); }
@@ -88,6 +88,8 @@ $color-dark: rgba(77,77,77,1);
 a { 
   color: $color-link; 
   &:hover { color: darken($color-link, 20);}
+
+  img { border: none; }
 }
 
 // Some basics for formattedContent
@@ -114,10 +116,12 @@ body {
 
 .fullWidth {
   width: 100%;
+  box-sizing: border-box;
 }
 
 .fullHeight {
-  height: 100%
+  height: 100%;
+  box-sizing: border-box;
 }
 
 
@@ -222,3 +226,10 @@ body {
   width: 100%;
   height: 100%;
 }
+
+.grid {
+  display: grid;
+}
+
+// This is for old IE compatibility without grid support
+.grid > div > div.el > * { max-width: 100%; }

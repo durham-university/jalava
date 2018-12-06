@@ -80,6 +80,11 @@ view model = lazy view_ model
 
 view_ : Model -> Html Msg
 view_ model = 
+  let
+    idAttribute = case model.containerId of
+      Just containerId -> [Attributes.id containerId]
+      Nothing -> []
+  in
     case model.manifest of
       Just manifest ->
         let
@@ -94,14 +99,11 @@ view_ model =
               |> CanvasButton.attributes [Attributes.id (buttonIdFor model canvas.id)]
               |> CanvasButton.selected (Just canvas.id == model.selectedCanvas)
               |> CanvasButton.canvasButton
-          idAttribute = case model.containerId of
-            Just containerId -> [Attributes.id containerId]
-            Nothing -> []
         in
           if isStub manifest then row 10 [cssPadding <| cssPx 10, fullWidth, Attributes.style "overflow-x" "scroll"] [Spinner.spinnerThumbnail]
           else
             row 10 ([cssPadding <| cssPx 10, fullWidth, Attributes.style "overflow-x" "scroll"] ++ idAttribute) (List.map canvasButton canvases)
-      Nothing -> none
+      Nothing -> row 10 ([cssPadding <| cssPx 10, fullWidth, Attributes.style "overflow-x" "scroll"] ++ idAttribute) []
 
 
 scrollToView : CanvasUri -> Bool -> Model -> (Model, Cmd Msg, List OutMsg)

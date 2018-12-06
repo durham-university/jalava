@@ -123,5 +123,5 @@ view model =
             ]
           , el [Attributes.style "padding-top" <| cssPx 10, Attributes.style "padding-bottom" <| cssPx 15, fullHeight, fullWidth] (manifestList.view model)
           ]
-    Nothing -> none
+    Nothing -> column 0 [fullHeight, fullWidth] []
  

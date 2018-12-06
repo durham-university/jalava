@@ -178,7 +178,7 @@ footer model =
           |> Button.button
       in
       row 5 [fullWidth, cssColor <| Colors.toCss Colors.dimTextColor]
-        [ el [fullWidth] (toggleButton)
+        [ el [fullWidth, Attributes.style "flex-shrink" "1"] (toggleButton)
         , el [] (text <| pluralise (List.length canvases) "image -" "images -")
         , el [] (IiifLink.iiifLink manifest_.id)
         ]
