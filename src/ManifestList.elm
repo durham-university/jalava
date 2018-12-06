@@ -9,9 +9,10 @@ import UI.Core exposing(..)
 import Html exposing(..)
 import Html.Attributes as Attributes
 import Html.Events as Events
+import Html.Lazy as Lazy
 
 import Iiif.Types exposing(..)
-import Iiif.Utils exposing(getManifest, getCollection, isStub, manifestToString)
+import Iiif.Utils exposing(getManifest, getManifests, getCollection, isStub, manifestToString)
 import Iiif.Loading
 import Iiif.ImageApi
 
@@ -22,19 +23,17 @@ import Update as U
 
 
 type alias Model = 
-  { iiif : Iiif
-  , manifests : List ManifestUri
-  , collection : Maybe CollectionUri
-  , allManifests : List ManifestUri
+  { manifests : List Manifest
+  , collection : Maybe Collection
   , selectedManifest : Maybe ManifestUri
   , panelModels : List (ManifestPanel.Model)
   , errors : List String
   }
 
-type Msg = AddManifest ManifestUri
+type Msg = AddManifest Manifest
          | ClearManifests
-         | SetManifests (List ManifestUri)
-         | SetCollection CollectionUri
+         | SetManifests (List Manifest)
+         | SetCollection Iiif Collection
          | ClearCollection
          | ManifestClicked ManifestUri
          | CanvasClicked ManifestUri CanvasUri
@@ -60,10 +59,10 @@ manifestPanel ind =
     , wrapModel = \model subModel -> { model | panelModels = ListE.setAt ind subModel model.panelModels }
     , wrapMsg = ManifestPanelMsg ind
     , outEvaluator = \msgSub model ->
-        case (msgSub, ListE.getAt ind model.allManifests) of
+        case (msgSub, ListE.getAt ind model.manifests) of
           (_, Nothing) -> (model, Cmd.none, [])
-          (ManifestPanel.ManifestSelected, Just manifestUri) -> (model, Cmd.none, [ManifestSelected manifestUri])
-          (ManifestPanel.CanvasSelected canvasUri, Just manifestUri) -> (model, Cmd.none, [CanvasSelected manifestUri canvasUri])
+          (ManifestPanel.ManifestSelected, Just manifest) -> (model, Cmd.none, [ManifestSelected manifest.id])
+          (ManifestPanel.CanvasSelected canvasUri, Just manifest) -> (model, Cmd.none, [CanvasSelected manifest.id canvasUri])
     }
 
 updateAllPanels : ManifestPanel.Msg -> Model -> (Model, Cmd Msg, List OutMsg )
@@ -73,7 +72,7 @@ updateAllPanels msg model =
     folder _ (index, result) =
       (index + 1, result |> U.chain ((manifestPanel index).updater msg) )
   in
-    Tuple.second <| List.foldl folder (0, (model, Cmd.none, [])) model.allManifests
+    Tuple.second <| List.foldl folder (0, (model, Cmd.none, [])) model.manifests
 
 init : Decode.Value -> ( Model, Cmd Msg, List OutMsg )
 init flags = (emptyModel, Cmd.none, [])
@@ -83,10 +82,8 @@ subscriptions model =
     Sub.batch <| List.indexedMap (\index _ -> (manifestPanel index).subscriptions model) model.panelModels
 
 emptyModel = 
-  { iiif = Iiif.Utils.empty
-  , manifests = []
+  { manifests = []
   , collection = Nothing
-  , allManifests = []
   , selectedManifest = Nothing
   , panelModels = []
   , errors = []
@@ -95,11 +92,23 @@ emptyModel =
 update : Msg -> Model -> ( Model, Cmd Msg, List OutMsg )
 update msg model =
   case msg of
-    AddManifest manifestUri -> { model | manifests = model.manifests ++ [manifestUri]} |> updateAllManifests |> resetPanels |> U.noSideEffects
-    ClearManifests -> { model | manifests = [] } |> updateAllManifests |> resetPanels |> U.noSideEffects
-    SetManifests manifestUris -> { model | manifests = manifestUris } |> updateAllManifests |> resetPanels |> U.noSideEffects
-    ClearCollection -> { model | collection = Nothing } |> updateAllManifests |> resetPanels |> U.noSideEffects
-    SetCollection collectionUri -> { model | collection = Just collectionUri } |> updateAllManifests |> resetPanels |> U.noSideEffects
+    AddManifest manifest -> 
+      let
+        newModel = case model.collection of
+                      Nothing -> { model | manifests = model.manifests ++ [manifest] }
+                      Just _ -> {model | manifests = [manifest], collection = Nothing}
+      in
+        newModel |> resetPanels |> U.noSideEffects
+    ClearManifests -> 
+      case model.collection of
+        Nothing -> { model | manifests = [] } |> resetPanels |> U.noSideEffects
+        Just _ -> model |> U.noSideEffects
+    SetManifests manifests -> { model | manifests = manifests, collection = Nothing } |> resetPanels |> U.noSideEffects
+    ClearCollection -> 
+      case model.collection of
+        Nothing -> model |> U.noSideEffects
+        Just _ -> { model | manifests = [], collection = Nothing } |> resetPanels |> U.noSideEffects
+    SetCollection iiif collection -> { model | collection = Just collection } |> updateCollectionManifests iiif |> resetPanels |> U.noSideEffects
     IiifNotification notification -> 
       checkCollectionLoaded notification model
       |> U.chain (updateAllPanels (ManifestPanel.IiifNotification notification))
@@ -114,37 +123,43 @@ checkCollectionLoaded : Iiif.Loading.Notification -> Model -> (Model, Cmd Msg, L
 checkCollectionLoaded notification model = 
   case notification of
     Iiif.Loading.CollectionLoaded iiif collectionUri -> 
-      if model.collection == Just collectionUri then
-        updateAllManifests model |> resetPanels |> U.noSideEffects
+      if Maybe.map .id model.collection == Just collectionUri then
+        let collection = getCollection iiif collectionUri
+        in 
+          {model | collection = Just collection}
+            |> updateCollectionManifests iiif 
+            |> resetPanels 
+            |> U.noSideEffects
       else
         (model, Cmd.none, [])
     _ -> (model, Cmd.none, [])
 
 
-updateAllManifests : Model -> Model
-updateAllManifests model =
+updateCollectionManifests : Iiif -> Model -> Model
+updateCollectionManifests iiif model =
   let 
-    maybeCollection = Maybe.map (getCollection model.iiif) model.collection
-    maybeManifestUris = Maybe.map .manifests maybeCollection
-    collectionManifests = Maybe.withDefault [] maybeManifestUris
+    maybeManifestUris = Maybe.map .manifests model.collection
+    maybeManifests = Maybe.map (getManifests iiif) maybeManifestUris
+    collectionManifests = Maybe.withDefault [] maybeManifests
   in
-    {model | allManifests = model.manifests ++ collectionManifests}
+    {model | manifests = collectionManifests}
 
 
 resetPanels : Model -> Model
 resetPanels model = 
   let
-    panelModel manifestUri = 
+    panelModel manifest = 
       let
         re = Maybe.withDefault Regex.never (Regex.fromString "\\W+")
-        panelId = Regex.replace re (\_ -> "_") manifestUri
-        manifest = getManifest model.iiif manifestUri
+        panelId = Regex.replace re (\_ -> "_") manifest.id
       in ManifestPanel.emptyModel |> ManifestPanel.id panelId |> ManifestPanel.manifest manifest
   in
-  { model | panelModels = List.map panelModel model.allManifests }
-
+  { model | panelModels = List.map panelModel model.manifests }
 
 view : Model -> Html Msg
-view model = 
-  column 15 [fullWidth, fullHeight] (List.indexedMap (\ind uri -> (manifestPanel ind).view model) model.allManifests)
+view model = Lazy.lazy view_ model
+
+view_ : Model -> Html Msg
+view_ model = 
+  column 15 [fullWidth, fullHeight] (List.indexedMap (\ind uri -> (manifestPanel ind).view model) model.manifests)
   

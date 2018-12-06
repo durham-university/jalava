@@ -21,7 +21,7 @@ import Utils exposing(..)
 
 import Iiif.Types exposing(..)
 import Iiif.Loading exposing(loadManifest, loadCollection, loadAnnotationList)
-import Iiif.Utils exposing(getManifest)
+import Iiif.Utils exposing(getManifest, getCollection)
 import UriMapper exposing (UriMapper)
 import Update as U
 
@@ -89,8 +89,10 @@ collectionTree =
 collectionView =
   U.subComponent 
     { component = CollectionView.component 
-    , unwrapModel = \model -> let subModel = model.collectionViewModel in {subModel | iiif = model.iiif}
-    , wrapModel = \model subModel -> { model | collectionViewModel = { subModel | iiif = Iiif.Utils.empty }, errors = model.errors ++ subModel.errors}
+    , unwrapModel = .collectionViewModel
+    , wrapModel = \model subModel -> 
+                      if List.isEmpty subModel.errors then {model | collectionViewModel = subModel }
+                      else { model | collectionViewModel = { subModel | errors = []}, errors = model.errors ++ subModel.errors}
     , wrapMsg = CollectionViewMsg
     , outEvaluator = \msgSub model ->
         case msgSub of
@@ -168,13 +170,14 @@ parseUrl url model =
         Just [] -> (Nothing, Nothing)
         Just [x] -> (Just (model.uriMapper.inflate x), Nothing)
         Just (x :: y :: xs) -> (Just (model.uriMapper.inflate x), Just (model.uriMapper.inflate y))
+    selectedCollectionMaybe = Maybe.map (getCollection model.iiif) (List.head path)
     screen = case selectedManifest of
       Nothing -> Browser
       Just x -> Viewer
     newModel = { model | url = url, screen = screen }
   in
     collectionTree.updater (CollectionTree.SelectPath path) newModel
-      |> U.chain (collectionView.updater (CollectionView.SetCollection (List.head path)))
+      |> U.chain (collectionView.updater (CollectionView.SetCollectionMaybe model.iiif selectedCollectionMaybe))
       |> U.chain (manifestView.updater (ManifestView.SetManifestAndCanvas (Maybe.map (getManifest model.iiif) selectedManifest) selectedCanvas))
 
 
@@ -236,9 +239,11 @@ outMsgEvaluator msg model =
         |> U.mapCmd IiifMsg
         |> U.ignoreOut
     CollectionSelected path ->
-      let collectionUri = List.head path
+      let 
+        collectionUriMaybe = List.head path
+        collectionMaybe = Maybe.map (getCollection model.iiif) collectionUriMaybe
       in 
-        collectionView.updater (CollectionView.SetCollection collectionUri) model
+        collectionView.updater (CollectionView.SetCollectionMaybe model.iiif collectionMaybe) model
         |> U.chain2 updateUrl
         |> U.evalOut2 outMsgEvaluator
     ManifestSelected uri ->
