@@ -34,7 +34,7 @@ addAnnotationList : AnnotationList -> Iiif -> Iiif
 addAnnotationList annotationList iiif =
   { iiif | annotationLists = dictInsert annotationList iiif.annotationLists }  
 
-getObject : String -> (String -> Maybe String -> Maybe String -> b) -> Dict String b -> b
+getObject : String -> (String -> Maybe String -> Maybe Resource -> b) -> Dict String b -> b
 getObject key default dict =
   let maybe = Dict.get key dict
   in

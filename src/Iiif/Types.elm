@@ -40,7 +40,7 @@ type alias Manifest =
   { id : ManifestUri
   , label : Maybe String
   , description : Maybe String
-  , logo : Maybe String
+  , logo : Maybe Resource
   , license : Maybe String
   , attribution : Maybe String
   , metadata : Dict String (List String)
@@ -54,7 +54,7 @@ type alias Manifest =
 type alias Collection =
   { id : CollectionUri
   , label : Maybe String
-  , logo : Maybe String
+  , logo : Maybe Resource
   , collections : List CollectionUri
   , manifests : List ManifestUri
   , status : Status

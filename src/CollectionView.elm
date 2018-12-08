@@ -22,6 +22,7 @@ import Utils exposing(pluralise)
 import Iiif.Types exposing(..)
 import Iiif.Utils exposing(getManifest, getCollection, isStub, collectionToString)
 import Iiif.Loading
+import Iiif.ImageApi as ImageApi
 
 type alias Model =
   { collection : Maybe Collection
@@ -132,7 +133,7 @@ view_ model =
     Just collection ->
       let
         logoElem = case collection.logo of
-          Just logo -> Html.img [Attributes.height 60, Attributes.src logo, Attributes.alt "logo"] []
+          Just logo -> Html.img [Attributes.height 60, Attributes.src (ImageApi.resourceUrlSimple (ImageApi.FitH 60) logo), Attributes.alt "logo"] []
           Nothing -> none
         spinnerElem = case isStub collection of
           True -> Spinner.spinner

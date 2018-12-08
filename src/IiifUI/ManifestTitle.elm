@@ -2,6 +2,7 @@ module IiifUI.ManifestTitle exposing(..)
 
 import Iiif.Types exposing(..)
 import Iiif.Utils
+import Iiif.ImageApi as ImageApi
 
 import UI.Core exposing(..)
 import UI.TitleLine as TitleLine
@@ -41,7 +42,8 @@ manifestTitle config =
     Nothing -> none
     Just manifest_ ->
       let
-        logo = Maybe.map (\justLogo -> img [Attributes.height config.logoHeight, Attributes.src justLogo, Attributes.alt "logo"] []) manifest_.logo
+        logoUrlMaybe = Maybe.map (ImageApi.resourceUrlSimple (ImageApi.FitH config.logoHeight)) manifest_.logo
+        logo = Maybe.map (\justLogo -> img [Attributes.height config.logoHeight, Attributes.src justLogo, Attributes.alt "logo"] []) logoUrlMaybe
         title = manifest_.label |> Maybe.map ( p [fullWidth, Attributes.style "flex-shrink" "1"] << List.singleton << text) |> Maybe.withDefault none 
         spinner = if Iiif.Utils.isStub manifest_ then Spinner.spinner
                   else none

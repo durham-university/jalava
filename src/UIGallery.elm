@@ -346,7 +346,7 @@ testManifest =
       , canvases = [ canvas, canvas, canvas, canvas, canvas, canvas ]
       }
   in
-    stubManifest "http://www.example.com" (Just "Test manifest") (Just "test_manifest_logo.png")
+    stubManifest "http://www.example.com" (Just "Test manifest") (Just <| Resource (Just "test_manifest_logo.png") Nothing Nothing Nothing Nothing Nothing Nothing Nothing)
       |> \x -> {x | description = Just ("<b>Test formatting</b> " ++ loremIpsum)
                   , license = Just "All rights reserved"
                   , attribution = Just "Test attribution"

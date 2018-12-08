@@ -3,7 +3,7 @@ module Iiif.Stubs exposing(..)
 import Iiif.Types exposing(..)
 import Dict exposing(Dict)
 
-stubManifest : ManifestUri -> Maybe String -> Maybe String -> Manifest
+stubManifest : ManifestUri -> Maybe String -> Maybe Resource -> Manifest
 stubManifest id label logo =
   { id = id
   , label = label
@@ -19,7 +19,7 @@ stubManifest id label logo =
   , status = Stub
   }
 
-stubCollection : CollectionUri -> Maybe String -> Maybe String -> Collection
+stubCollection : CollectionUri -> Maybe String -> Maybe Resource -> Collection
 stubCollection id label logo =
   { id = id
   , label = label

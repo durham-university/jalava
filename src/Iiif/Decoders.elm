@@ -75,7 +75,8 @@ annotationSelectorDecoder =
 resourceDecoder : Decode.Decoder Resource
 resourceDecoder = 
   Decode.oneOf 
-  [ Decode.succeed Resource
+  [ Decode.string |> Decode.map (\id -> Resource (Just id) Nothing Nothing Nothing Nothing Nothing Nothing Nothing)
+  , Decode.succeed Resource
       |> optional "@id" (Decode.nullable Decode.string) Nothing
       |> optional "@type" (Decode.nullable Decode.string) Nothing
       |> optional "format" jsonLdValueStringDecoder Nothing
@@ -84,7 +85,6 @@ resourceDecoder =
       |> optional "service" (Decode.nullable serviceDecoder) Nothing
       |> optional "chars" jsonLdValueStringDecoder Nothing
       |> optional "label" jsonLdValueStringDecoder Nothing
-  , Decode.string |> Decode.map (\id -> Resource (Just id) Nothing Nothing Nothing Nothing Nothing Nothing Nothing)
   ]
 
 
@@ -176,7 +176,7 @@ manifestDecoder =
       |> required "@id" Decode.string
       |> optional "label" jsonLdValueStringDecoder Nothing
       |> optional "description" jsonLdValueStringDecoder Nothing
-      |> optional "logo" jsonLdValueStringDecoder Nothing
+      |> optional "logo" (Decode.nullable resourceDecoder) Nothing
       |> optional "license" jsonLdValueStringDecoder Nothing
       |> optional "attribution" jsonLdValueStringDecoder Nothing
       |> optional "metadata" (metadataDecoder) (Dict.empty)
@@ -231,14 +231,14 @@ manifestStubDecoder =
     |> required "@type" (Decode.string |> requiredValue "sc:Manifest")
     |> required "@id" Decode.string
     |> optional "label" jsonLdValueStringDecoder Nothing
-    |> optional "logo" jsonLdValueStringDecoder Nothing
+    |> optional "logo" (Decode.nullable resourceDecoder) Nothing
 
 manifestStubRelaxedDecoder : Decode.Decoder Manifest
 manifestStubRelaxedDecoder = 
   Decode.succeed stubManifest
     |> required "@id" Decode.string
     |> optional "label" jsonLdValueStringDecoder Nothing
-    |> optional "logo" jsonLdValueStringDecoder Nothing
+    |> optional "logo" (Decode.nullable resourceDecoder) Nothing
 
 
 decodeListOrSingle : Decode.Decoder a -> Decode.Decoder (List a)
@@ -287,7 +287,7 @@ collectionDecoder =
     collection = Decode.succeed Collection
       |> required "@id" Decode.string
       |> optional "label" jsonLdValueStringDecoder Nothing
-      |> optional "logo" jsonLdValueStringDecoder Nothing
+      |> optional "logo" (Decode.nullable resourceDecoder) Nothing
       |> custom (Decode.map (List.map .id) subCollections)
       |> custom (Decode.map (List.map .id) manifests)
       |> hardcoded Full
@@ -323,14 +323,14 @@ collectionStubDecoder =
     |> required "@type" (Decode.string |> requiredValue "sc:Collection")
     |> required "@id" Decode.string
     |> optional "label" jsonLdValueStringDecoder Nothing
-    |> optional "logo" jsonLdValueStringDecoder Nothing
+    |> optional "logo" (Decode.nullable resourceDecoder) Nothing
 
 collectionStubRelaxedDecoder : Decode.Decoder Collection
 collectionStubRelaxedDecoder =
   Decode.succeed stubCollection
     |> required "@id" Decode.string
     |> optional "label" jsonLdValueStringDecoder Nothing
-    |> optional "logo" jsonLdValueStringDecoder Nothing
+    |> optional "logo" (Decode.nullable resourceDecoder) Nothing
 
 
 annotationListDecoder : Decode.Decoder (AnnotationListUri, Iiif)

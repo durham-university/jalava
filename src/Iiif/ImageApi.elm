@@ -39,6 +39,9 @@ annotationUrlFull : Region -> Size -> Rotation -> Quality -> Annotation -> Strin
 annotationUrlFull region size rotation quality annotation =
   resourceUrl region size rotation quality annotation.resource
 
+resourceUrlSimple : Size -> Resource -> String
+resourceUrlSimple size = resourceUrl FullRegion size NoRotation Default
+
 resourceUrl : Region -> Size -> Rotation -> Quality -> Resource -> String
 resourceUrl region size rotation quality resource =
   case resource.service of
