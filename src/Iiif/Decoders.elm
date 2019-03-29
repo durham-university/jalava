@@ -287,6 +287,7 @@ collectionDecoder =
     collection = Decode.succeed Collection
       |> required "@id" Decode.string
       |> optional "label" jsonLdValueStringDecoder Nothing
+      |> optional "description" jsonLdValueStringDecoder Nothing
       |> optional "logo" (Decode.nullable resourceDecoder) Nothing
       |> custom (Decode.map (List.map .id) subCollections)
       |> custom (Decode.map (List.map .id) manifests)

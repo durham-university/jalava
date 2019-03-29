@@ -23,6 +23,7 @@ stubCollection : CollectionUri -> Maybe String -> Maybe Resource -> Collection
 stubCollection id label logo =
   { id = id
   , label = label
+  , description = Nothing
   , logo = logo
   , collections = []
   , manifests = []

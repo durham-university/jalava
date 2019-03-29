@@ -54,6 +54,7 @@ type alias Manifest =
 type alias Collection =
   { id : CollectionUri
   , label : Maybe String
+  , description : Maybe String
   , logo : Maybe Resource
   , collections : List CollectionUri
   , manifests : List ManifestUri

@@ -5,6 +5,9 @@ import Json.Decode as Decode
 
 import UI.Core exposing(..)
 import UI.Fonts exposing(..)
+import UI.Collapsible as Collapsible
+import UI.Colors as Colors
+import UI.Button as Button
 
 import Html exposing(..)
 import Html.Attributes as Attributes
@@ -12,7 +15,8 @@ import Html.Events as Events
 import Html.Lazy as Lazy
 
 import IiifUI.Spinner as Spinner
-import IiifUI.IiifLink exposing(iiifLink)
+import IiifUI.CollectionDetails as CollectionDetails
+import IiifUI.IiifLink as IiifLink
 
 import ManifestList
 
@@ -27,6 +31,7 @@ import Iiif.ImageApi as ImageApi
 type alias Model =
   { collection : Maybe Collection
   , manifestListModel : ManifestList.Model
+  , collapsible : Collapsible.Model
   , errors : List String
   }
 
@@ -35,6 +40,7 @@ type Msg  = SetCollection Iiif Collection
           | SetCollectionMaybe Iiif (Maybe Collection)
           | ManifestListMsg ManifestList.Msg
           | IiifNotification Iiif.Loading.Notification
+          | CollapsibleMsg Collapsible.Msg
 
 type OutMsg = LoadManifest ManifestUri
             | LoadCollection CollectionUri
@@ -59,12 +65,22 @@ manifestList =
     }
 
 
+collapsible = 
+  U.subComponent 
+    { component = Collapsible.component 
+    , unwrapModel = .collapsible
+    , wrapModel = \model subModel -> { model | collapsible = subModel }
+    , wrapMsg = CollapsibleMsg
+    , outEvaluator = \msgSub model -> (model, Cmd.none, [])
+    }
+
+
 component : U.Component Model Msg OutMsg
 component = { init = init, emptyModel = emptyModel, update = update, view = view, subscriptions = subscriptions }
 
 
 subscriptions : Model -> Sub Msg
-subscriptions model =  manifestList.subscriptions model
+subscriptions model =  Sub.batch [ manifestList.subscriptions model, collapsible.subscriptions model ]
 
 
 init : Decode.Value -> ( Model, Cmd Msg, List OutMsg )
@@ -80,6 +96,12 @@ emptyModel : Model
 emptyModel = 
   { collection = Nothing
   , manifestListModel = ManifestList.emptyModel
+  , collapsible = 
+      Collapsible.emptyModel 
+        |> Collapsible.closed 
+        |> Collapsible.id "collection_details"
+        |> Collapsible.labels (text "Show collection details") (text "Hide collection details")
+        |> Collapsible.attributes [fullWidth, Attributes.style "flex-shrink" "1"]
   , errors = []
   }
 
@@ -87,13 +109,18 @@ emptyModel =
 update : Msg -> Model -> ( Model, Cmd Msg, List OutMsg )
 update msg model =
   case msg of
+    CollapsibleMsg collapsibleMsg -> 
+      (model, Cmd.none, []) |> U.chain (collapsible.updater collapsibleMsg)
     ManifestListMsg manifestListMsg -> manifestList.updater manifestListMsg model
     ClearCollection -> 
-      {model | collection = Nothing} |> manifestList.updater ManifestList.ClearCollection 
+      {model | collection = Nothing} 
+        |> manifestList.updater ManifestList.ClearCollection 
+        |> U.mapModel updateCollectionInfo
     SetCollection iiif collection -> 
       { model | collection = Just collection } 
         |> loadCollection 
         |> U.chain (manifestList.updater (ManifestList.SetCollection iiif collection))
+        |> U.mapModel updateCollectionInfo
     SetCollectionMaybe iiif maybeCollection ->
       case maybeCollection of
         Just collection -> update (SetCollection iiif collection) model
@@ -110,10 +137,20 @@ checkCollectionLoaded notification model =
       if Maybe.map .id model.collection == Just collectionUri then
         let collection = getCollection iiif collectionUri
         in 
-          {model | collection = Just collection} |> U.noSideEffects
+          {model | collection = Just collection} |> U.noSideEffects |> U.mapModel updateCollectionInfo
       else
         (model, Cmd.none, [])
     _ -> (model, Cmd.none, [])
+
+updateCollectionInfo : Model -> Model
+updateCollectionInfo model = 
+  case model.collection of
+    Just collection_ -> 
+      let 
+        collectionInfo = CollectionDetails.empty |> CollectionDetails.collection collection_ |> CollectionDetails.collectionDetails
+      in 
+        {model | collapsible = model.collapsible |> Collapsible.content collectionInfo }
+    Nothing -> {model | collapsible = model.collapsible |> Collapsible.content none}
 
 
 loadCollection : Model -> (Model, Cmd Msg, List OutMsg )
@@ -138,13 +175,23 @@ view_ model =
         spinnerElem = case isStub collection of
           True -> Spinner.spinner
           False -> none
+        (collapsibleMsg, toggleLabel) = Collapsible.toggleButtonInfo model.collapsible
+        toggleButton = 
+          Button.slimLink 
+          |> Button.color "Dim"
+          |> Button.content (toggleLabel |> Html.map CollapsibleMsg)
+          |> Button.onPress (CollapsibleMsg collapsibleMsg)
+          |> Button.button
+
       in
-        column 0 [fullHeight, fullWidth]
+        column 0 [fullHeight, fullWidth] <|
           [ row 5 (textBody ++ [fullWidth, Attributes.style "font-size" "24px"]) [logoElem, text <| collectionToString collection, spinnerElem]
-          , row 5 [fullWidth, Attributes.style "justify-content" "flex-end"]
-            [ el textBody (text <| pluralise (List.length collection.manifests) "manifest - " "manifests - ")
-            , el [] (iiifLink collection.id)
-            ]
+          , row 5 [fullWidth] [model.collapsible |> Collapsible.view |> Html.map CollapsibleMsg]
+          , row 5 [fullWidth, cssColor <| Colors.toCss Colors.dimTextColor]
+                  [ el [fullWidth, Attributes.style "flex-shrink" "1"] (toggleButton)
+                  , el textBody (text <| pluralise (List.length collection.manifests) "manifest -" "manifests -")
+                  , el [] (IiifLink.iiifLink collection.id)
+                  ]
           , el [Attributes.style "padding-top" <| cssPx 10, Attributes.style "padding-bottom" <| cssPx 15, fullHeight, fullWidth] (manifestList.view model)
           ]
     Nothing -> column 0 [fullHeight, fullWidth] []
