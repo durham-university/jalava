@@ -210,12 +210,12 @@ body {
 
   & > .fullWidth {
     align-self: stretch;
-    width: unset;
+    width: 100%;
   }
 
   & > .fullHeight {
     flex-grow: 1;
-    height: unset;
+    height: 100%;
   }
 }
 
