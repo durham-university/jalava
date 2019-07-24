@@ -83,4 +83,8 @@ canvasLabelOnly : CanvasButtonConfig msg -> Html msg
 canvasLabelOnly config = 
   config.canvas |> Maybe.andThen .label |> Maybe.withDefault "" 
     |> text
-    |> el (Fonts.textBody ++ [Attributes.style "white-space" "nowrap"])
+    |> el (Fonts.textBody ++ 
+          [ Attributes.style "white-space" "nowrap"
+          , Attributes.style "overflow" "hidden"
+          , Attributes.style "max-width" "200px"
+          ])
