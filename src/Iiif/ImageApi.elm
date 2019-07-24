@@ -24,6 +24,10 @@ type Quality
   = Default
   | Gray
 
+type OsdSource
+  = ImageSource String
+  | IiifSource String
+
 canvasThumbnailUrl : Size -> Canvas -> String
 canvasThumbnailUrl size canvas =
   case canvas.thumbnail of
@@ -90,14 +94,14 @@ imageServiceUrl region size rotation quality format service =
     (String.join "/" [service.id, regionString, sizeString, rotationString, qualityString]) ++ "." ++ format
 
 
-osdSourceImage : Annotation -> String
+osdSourceImage : Annotation -> Maybe OsdSource
 osdSourceImage annotation =
   case annotation.resource.service of
     -- TODO: Should check service profile
-    Just service -> service.id ++ "/info.json"
-    Nothing -> Maybe.withDefault "" annotation.resource.id
+    Just service -> Just <| IiifSource <| service.id ++ "/info.json"
+    Nothing -> Maybe.map ImageSource annotation.resource.id
 
-osdSource : Canvas -> Maybe String
+osdSource : Canvas -> Maybe OsdSource
 osdSource canvas = 
   List.head canvas.images
-  |> Maybe.map osdSourceImage
+  |> Maybe.andThen osdSourceImage

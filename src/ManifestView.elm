@@ -26,7 +26,7 @@ import Iiif.Types exposing(..)
 import Iiif.Encoders
 import Iiif.Loading
 import Iiif.Utils exposing(getManifest, getCanvas, getRange, isStub, manifestToString, getCanvasAnnotationLists, getAnnotationLists, getCanvasAnnotation)
-import Iiif.ImageApi exposing(osdSource)
+import Iiif.ImageApi exposing(osdSource, OsdSource(..))
 
 port outPortOsdCmd : Encode.Value -> Cmd msg
 
@@ -99,14 +99,19 @@ openCanvasInOsd model =
   let
     maybeCanvas = Maybe.map2 getCanvas model.manifest model.canvas |> Maybe.withDefault Nothing
     maybeSource = Maybe.andThen osdSource maybeCanvas
-    maybeCmd = Maybe.map 
-      (\source -> 
+    maybeSourceValue = 
+      case maybeSource of
+        Nothing -> Nothing
+        Just (ImageSource url) -> Just <| Encode.object [("sourceType", Encode.string "image"), ("url", Encode.string url)]
+        Just (IiifSource url) -> Just <| Encode.object [("sourceType", Encode.string "iiif"), ("url", Encode.string url)]
+    maybeCmd = Maybe.map
+      (\sourceValue -> 
         outPortOsdCmd (Encode.object 
           [ ("type", Encode.string "setSource")
           , ("for", Encode.string model.osdElemId)
-          , ("value", Encode.string source)
+          , ("value", sourceValue)
           ])
-      ) maybeSource
+      ) maybeSourceValue
   in
     case (maybeCmd, Maybe.map .id model.manifest, model.canvas) of 
       (Just cmd, Just manifestUri, Just canvasUri) -> (model, cmd, [CanvasOpened manifestUri canvasUri])

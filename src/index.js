@@ -59,9 +59,20 @@ window.mountJalava = function(mountNode, config){
     }
 
     if (data["type"] == "setSource") {
-      if (data["value"] == "") viewer.close();
+      if (data["value"]["url"] == "") viewer.close();
       else {
-        viewer.open(data["value"]);
+        if(data["value"]["sourceType"] == "image") {
+          viewer.open({
+            type: 'image',
+            url: data["value"]["url"]
+          });
+        }
+        else if(data["value"]["sourceType"] == "iiif") {
+          viewer.open(data["value"]["url"]);
+        }
+        else {
+          viewer.close();
+        }
       }
     }
   });
