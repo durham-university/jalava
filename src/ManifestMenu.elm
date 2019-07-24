@@ -147,5 +147,6 @@ viewOpen model =
       , Attributes.style "word-break" "break-word"
       , Attributes.style "border-left" <| "1px solid " ++ (Colors.toCss Colors.divider)
       , Attributes.style "border-bottom" <| "1px solid " ++ (Colors.toCss Colors.divider)
+      , Attributes.style "height" "100%" -- This fixes a layout bug in some browsers
       ] tabContent
     ]
