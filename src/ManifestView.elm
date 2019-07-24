@@ -16,7 +16,7 @@ import IiifUI.Spinner as Spinner
 import IiifUI.ManifestTitle as ManifestTitle
 
 import Update as U
-import Utils exposing(pluralise, flip)
+import Utils exposing(pluralise, flip, ScrollInfo, ScrollAlignment(..), ScrollAxis(..))
 
 import CanvasList
 import ManifestMenu
@@ -59,6 +59,7 @@ type OutMsg = LoadManifest ManifestUri
             | CanvasOpened ManifestUri CanvasUri
             | CloseViewer
             | RequestIiif (Iiif -> Msg)
+            | ScrollToView ScrollInfo
 
 
 canvasList =
@@ -73,6 +74,8 @@ canvasList =
             case model.manifest of
               Nothing -> (model, Cmd.none, [])
               Just manifestUri -> update (SetCanvas (Just uri)) model
+          CanvasList.ScrollToViewOut scrollInfo -> 
+            (model, Cmd.none, [ScrollToView scrollInfo])
     }
 
 manifestMenu = 

@@ -1,4 +1,4 @@
-port module CanvasList exposing(Model, Msg(..), OutMsg(..), init, view, update, emptyModel, component, setContainerId)
+module CanvasList exposing(Model, Msg(..), OutMsg(..), init, view, update, emptyModel, component, setContainerId)
 
 import Url
 import Json.Decode as Decode
@@ -15,7 +15,7 @@ import IiifUI.Spinner as Spinner
 import IiifUI.CanvasButton as CanvasButton
 
 import Update as U
-import Utils exposing(pluralise, wrapKey, sanitiseId)
+import Utils exposing(pluralise, wrapKey, sanitiseId, ScrollInfo, ScrollAlignment(..), ScrollAxis(..))
 
 import Iiif.Types exposing(..)
 import Iiif.ImageApi
@@ -37,9 +37,7 @@ type Msg  = SetManifest (Maybe Manifest)
           | IiifNotification Iiif.Loading.Notification
 
 type OutMsg = CanvasOpened CanvasUri
-
-port outPortScrollToView : Encode.Value -> Cmd msg
-
+            | ScrollToViewOut ScrollInfo
 
 component : U.Component Model Msg OutMsg
 component = { init = init, emptyModel = emptyModel, update = update, view = view, subscriptions = \x -> Sub.none }
@@ -108,18 +106,12 @@ view_ model =
 
 scrollToView : CanvasUri -> Bool -> Model -> (Model, Cmd Msg, List OutMsg)
 scrollToView canvasUri animate model =
-  case (Debug.log "scrollToView" model.containerId) of
+  case model.containerId of
     Nothing -> (model, Cmd.none, [])
     Just containerId -> 
       let 
         buttonId = buttonIdFor model canvasUri
-        scrollCmd = outPortScrollToView (Encode.object
-          [ ("container", Encode.string <| "#" ++ containerId)
-          , ("item", Encode.string <| "#" ++ buttonId)
-          , ("axis", Encode.string "x")
-          , ("animate", Encode.bool animate)
-          ])
-      in (model, scrollCmd, [])
+      in (model, Cmd.none, [ScrollToViewOut <| ScrollInfo containerId buttonId ScrollX animate ScrollMiddle])
 
 
 buttonIdFor : Model -> CanvasUri -> String

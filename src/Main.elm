@@ -33,6 +33,8 @@ port inPortLazyLoadManifest : (String -> msg) -> Sub msg
 
 port inPortShowAnnotation : (Maybe AnnotationUri -> msg) -> Sub msg
 
+port outPortScrollToView : Encode.Value -> Cmd msg
+
 type alias Model =
   { key : Nav.Key
   , url : Url.Url
@@ -69,6 +71,7 @@ type OutMsg
   | CanvasOpened ManifestUri CanvasUri
   | CloseViewer
   | RequestIiif (Iiif -> Msg)
+  | ScrollToView ScrollInfo
 
 
 collectionTree =
@@ -84,6 +87,7 @@ collectionTree =
           CollectionTree.LoadManifest uri -> (model, Cmd.none, [LoadManifest uri])
           CollectionTree.LoadCollection uri -> (model, Cmd.none, [LoadCollection uri])
           CollectionTree.CollectionSelected path -> (model, Cmd.none, [CollectionSelected path])
+          CollectionTree.ScrollToView scrollInfo -> (model, Cmd.none, [ScrollToView scrollInfo])
     }
 
 collectionView =
@@ -116,6 +120,7 @@ manifestView =
           ManifestView.CanvasOpened manifestUri canvasUri -> (model, Cmd.none, [CanvasOpened manifestUri canvasUri])
           ManifestView.CloseViewer -> (model, Cmd.none, [CloseViewer])
           ManifestView.RequestIiif iiifMsg -> (model, Cmd.none, [RequestIiif (ManifestViewMsg << iiifMsg)])
+          ManifestView.ScrollToView scrollInfo -> (model, Cmd.none, [ScrollToView scrollInfo])
     }
 
 
@@ -142,6 +147,7 @@ init flags url key =
   (emptyModel url key, Cmd.none, [])
     |> setUriMapper
     |> U.chain (collectionTree.init flags)
+    |> U.mapModel (\m -> { m | collectionTreeModel = CollectionTree.setContainerId "collection_tree_container" m.collectionTreeModel })
     |> U.chain (collectionView.init flags)
     |> U.chain (manifestView.init flags)
     |> U.chain (parseUrl url)
@@ -264,6 +270,23 @@ outMsgEvaluator msg model =
         |> U.evalOut2 outMsgEvaluator
     RequestIiif iiifMsg ->
         update (iiifMsg model.iiif) model
+    ScrollToView scrollInfo ->
+        let
+          axis = case scrollInfo.axis of
+            ScrollX -> "x"
+            ScrollY -> "y"
+          alignment = case scrollInfo.alignment of
+            ScrollStart -> "start"
+            ScrollMiddle -> "middle"
+          scrollCmd = outPortScrollToView (Encode.object
+            [ ("container", Encode.string <| "#" ++ scrollInfo.containerId)
+            , ("item", Encode.string <| "#" ++ scrollInfo.targetId)
+            , ("axis", Encode.string axis)
+            , ("animate", Encode.bool scrollInfo.animate)
+            , ("alignment", Encode.string alignment)
+            ])
+        in (model, scrollCmd)
+
 
 
 
@@ -337,7 +360,7 @@ view model =
 browserView : Model -> Html Msg
 browserView model =
   row 0 [fullWidth, fullHeight]
-    [ el [style "flex-grow" "1", fullHeight, style "flex-shrink" "0", style "flex-basis" "0", style "overflow" "scroll"] (collectionTree.view model)
+    [ el [style "flex-grow" "1", fullHeight, style "flex-shrink" "0", style "flex-basis" "0", style "overflow" "scroll", Attributes.id "collection_tree_container"] (collectionTree.view model)
     , el [style "flex-grow" "2", fullHeight, style "flex-shrink" "0", style "flex-basis" "0", cssPadding <| cssPx 10, style "overflow-y" "scroll"] (collectionView.view model)
     ]
 

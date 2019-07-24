@@ -22,6 +22,7 @@ type alias TreeConfig itemType msg =
   , itemLabel : itemType -> Html msg
   , itemIcon : itemType -> Maybe (Html msg)
   , itemSelected : itemType -> Bool
+  , itemId : itemType -> Maybe String
   , onPress : itemType -> Maybe msg
   , onPressIcon : itemType -> Maybe msg
   , baseColor : String
@@ -39,6 +40,7 @@ empty =
   , itemLabel = \_ -> none
   , itemIcon = \_ -> Nothing
   , itemSelected = \_ -> False
+  , itemId = \_ -> Nothing
   , onPress = \_ -> Nothing
   , onPressIcon = \_ -> Nothing
   , baseColor = "Primary"
@@ -80,6 +82,9 @@ open f config = { config | itemOpen = f }
 
 label : (itemType -> Html msg ) -> TreeConfig itemType msg -> TreeConfig itemType msg
 label f config = { config | itemLabel = f }
+
+itemId : (itemType -> Maybe String) -> TreeConfig itemType msg -> TreeConfig itemType msg
+itemId f config = { config | itemId = f }
 
 icon : (itemType -> Maybe (Html msg) ) -> TreeConfig itemType msg -> TreeConfig itemType msg
 icon f config = { config | itemIcon = f }
@@ -126,17 +131,18 @@ treeNode config totalIndent node =
                     UI.Core.button iconClickAttribute icon_
                   Nothing -> none
     labelClickAttribute = Maybe.map (List.singleton << Events.onClick) (config.onPress node) |> Maybe.withDefault []
+    idAttribute = Maybe.map (List.singleton << Attributes.id) (config.itemId node) |> Maybe.withDefault []
     labelButton = 
       UI.Core.button 
       ( [ Attributes.style "cursor" "pointer"
         , cssPadding4 (cssPx config.padding) "0" (cssPx config.padding) "0"
         , fullWidth
-        ] ++ labelClickAttribute) (config.itemLabel node)
+        ] ++ labelClickAttribute ) (config.itemLabel node)
   in
   [ row 5
       ( [cssPadding4 "0" (cssPx config.padding) "0" (cssPx <| config.padding + totalIndent)
         , cssBorderColor <| Colors.toCss Colors.divider
-        ] ++ selectedStyle ++ borderStyle )
+        ] ++ selectedStyle ++ borderStyle ++ idAttribute )
       [iconButton, labelButton]
   ] ++ nodeChildren
 

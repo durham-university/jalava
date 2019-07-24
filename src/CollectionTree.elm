@@ -1,7 +1,8 @@
-module CollectionTree exposing(Model, Msg(..), OutMsg(..), component, init, view, update, emptyModel)
+module CollectionTree exposing(Model, Msg(..), OutMsg(..), component, init, view, update, emptyModel, setContainerId)
 
 import Set exposing(Set, insert, remove, member)
 import Url
+import Json.Encode as Encode
 import Json.Decode as Decode
 import Html exposing(..)
 import Html.Attributes as Attributes
@@ -19,6 +20,8 @@ import UI.Icon as Icon
 import Utils exposing(..)
 import Update as U
 
+import Murmur3
+
 type Msg  = OpenCollection CollectionUri
           | CloseCollection CollectionUri
           | SelectPath (List CollectionUri)
@@ -28,6 +31,7 @@ type Msg  = OpenCollection CollectionUri
 type OutMsg = LoadManifest ManifestUri
             | LoadCollection CollectionUri
             | CollectionSelected (List CollectionUri)
+            | ScrollToView ScrollInfo
 
 type alias Model =
   { iiif : Iiif
@@ -35,6 +39,7 @@ type alias Model =
   , openedCollections : Set CollectionUri
   , selectedCollection : List CollectionUri
   , errors : List String
+  , containerId : Maybe String
   }
 
 component : U.Component Model Msg OutMsg
@@ -54,6 +59,9 @@ init flags =
   in
     (baseModel, Cmd.none, []) |> loadRoot
 
+setContainerId : String -> Model -> Model
+setContainerId id_ model = {model | containerId = Just id_}
+
 emptyModel : Model
 emptyModel =
   { iiif = Iiif.Utils.empty
@@ -61,6 +69,7 @@ emptyModel =
   , openedCollections = Set.empty
   , selectedCollection = []
   , errors = []
+  , containerId = Nothing
   }
 
 
@@ -115,6 +124,7 @@ view_ model =
     |> Tree.icon nodeIcon
     |> Tree.children nodeChildren
     |> Tree.selected nodeSelected
+    |> Tree.itemId (Just << nodeId << Tuple.second)
     |> Tree.open nodeOpen
     |> Tree.onPress (Just << CollectionClicked << Tuple.second)
     |> Tree.onPressIcon (Just << (toggleOpenMessage model) << Tuple.first)
@@ -128,7 +138,9 @@ update msg model =
     CloseCollection targetUri -> (setCollectionUriOpen targetUri False model, Cmd.none, [] )
     SelectPath path -> openPath path model
     CollectionClicked path -> 
-      openPath path model |> U.addOut [CollectionSelected path]
+      openPath path model 
+      |> U.addOut [CollectionSelected path]
+      |> U.chain (scrollToView path True)
     IiifNotification notification -> 
       case notification of
         Iiif.Loading.CollectionLoaded iiif collectionUri -> ({model | iiif = iiif}, Cmd.none, [])
@@ -147,7 +159,16 @@ openCollection uri model =
     (model, Cmd.none, [])
       |> U.mapModel (setCollectionUriOpen uri True)
       |> loadCollection
-    
+
+scrollToView : List CollectionUri -> Bool -> Model -> (Model, Cmd Msg, List OutMsg)
+scrollToView path animate model =
+  case model.containerId of
+    Nothing -> (model, Cmd.none, [])
+    Just containerId -> 
+      (model, Cmd.none, [ScrollToView <| ScrollInfo containerId (nodeId path) ScrollY animate ScrollStart])
+
+nodeId : List CollectionUri -> String
+nodeId path = String.join "!" ("CollectionTree" :: path) |> Murmur3.hashString 0 |> String.fromInt
 
 setCollectionOpen :  Collection -> Bool -> Model -> Model
 setCollectionOpen collection value model =

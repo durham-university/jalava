@@ -9,6 +9,17 @@ import Regex
 import XmlParser exposing (..)
 import VirtualDom as Dom
 
+type ScrollAxis = ScrollX | ScrollY
+
+type ScrollAlignment = ScrollStart | ScrollMiddle
+
+type alias ScrollInfo = 
+  { containerId : String
+  , targetId : String
+  , axis : ScrollAxis
+  , animate : Bool
+  , alignment : ScrollAlignment
+  }
 
 flip : (a -> b -> c) -> b -> a -> c
 flip f x y = f y x
