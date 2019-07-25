@@ -165,7 +165,7 @@ scrollToView path animate model =
   case model.containerId of
     Nothing -> (model, Cmd.none, [])
     Just containerId -> 
-      (model, Cmd.none, [ScrollToView <| ScrollInfo containerId (nodeId path) ScrollY animate ScrollStart])
+      (model, Cmd.none, [ScrollToView <| ScrollInfo containerId (ScrollRef <| nodeId path) ScrollY animate ScrollStart])
 
 nodeId : List CollectionUri -> String
 nodeId path = String.join "!" ("CollectionTree" :: path) |> Murmur3.hashString 0 |> String.fromInt

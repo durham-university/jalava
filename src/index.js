@@ -81,19 +81,20 @@ window.mountJalava = function(mountNode, config){
     // requestAnimationFrame forces dom updates to happen first
     requestAnimationFrame(function () {
       var container = $(data["container"]);
-      var item = container.find(data["item"]);
+      var item = null;
+      if (data["ref"]) item = container.find(data["ref"]);
 
-      if (item.length > 0) {
+      if ((item != null && item.length > 0) || data["pos"] != null) {
         if (data["axis"] == "x") {
-          var xpos = item.offset().left + container.scrollLeft();
-          var scrollPos = xpos - container.width() / 2.0 + item.width() / 2.0;
+          var xpos = (item == null ? data["pos"] : (item.offset().left + container.scrollLeft()) );
+          var scrollPos = xpos - container.width() / 2.0 + (item == null ? 0 : item.width()) / 2.0;
           if (data["alignment"] == "start") scrollPos = xpos;
           if (data["animate"]) container.animate({ scrollLeft: scrollPos });
           else container.scrollLeft(scrollPos)
         }
         else {
-          var ypos = item.offset().top + container.scrollTop();
-          var scrollPos = ypos - container.height() / 2.0 + item.height() / 2.0;
+          var ypos = (item == null ? data["pos"] : (item.offset().top + container.scrollTop()) );
+          var scrollPos = ypos - container.height() / 2.0 + (item == null ? 0 : item.height()) / 2.0;
           if (data["alignment"] == "start") scrollPos = ypos;
           if (data["animate"]) container.animate({ scrollTop: scrollPos });
           else container.scrollTop(scrollPos)

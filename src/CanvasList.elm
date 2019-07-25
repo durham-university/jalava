@@ -15,7 +15,7 @@ import IiifUI.Spinner as Spinner
 import IiifUI.CanvasButton as CanvasButton
 
 import Update as U
-import Utils exposing(pluralise, wrapKey, sanitiseId, ScrollInfo, ScrollAlignment(..), ScrollAxis(..))
+import Utils exposing(pluralise, wrapKey, sanitiseId, ScrollInfo, ScrollAlignment(..), ScrollAxis(..), ScrollTarget(..))
 
 import Iiif.Types exposing(..)
 import Iiif.ImageApi
@@ -111,7 +111,7 @@ scrollToView canvasUri animate model =
     Just containerId -> 
       let 
         buttonId = buttonIdFor model canvasUri
-      in (model, Cmd.none, [ScrollToViewOut <| ScrollInfo containerId buttonId ScrollX animate ScrollMiddle])
+      in (model, Cmd.none, [ScrollToViewOut <| ScrollInfo containerId (ScrollRef buttonId) ScrollX animate ScrollMiddle])
 
 
 buttonIdFor : Model -> CanvasUri -> String

@@ -1,4 +1,4 @@
-module CollectionView exposing(Model, Msg(..), OutMsg(..), init, view, update, emptyModel, component)
+module CollectionView exposing(Model, Msg(..), OutMsg(..), init, view, update, emptyModel, component, setContainerId)
 
 import Url
 import Json.Decode as Decode
@@ -21,7 +21,7 @@ import IiifUI.IiifLink as IiifLink
 import ManifestList
 
 import Update as U
-import Utils exposing(pluralise)
+import Utils exposing(pluralise, ScrollInfo, ScrollAlignment(..), ScrollAxis(..), ScrollTarget(..))
 
 import Iiif.Types exposing(..)
 import Iiif.Utils exposing(getManifest, getCollection, isStub, collectionToString)
@@ -30,6 +30,7 @@ import Iiif.ImageApi as ImageApi
 
 type alias Model =
   { collection : Maybe Collection
+  , containerId : Maybe String
   , manifestListModel : ManifestList.Model
   , collapsible : Collapsible.Model
   , errors : List String
@@ -46,6 +47,7 @@ type OutMsg = LoadManifest ManifestUri
             | LoadCollection CollectionUri
             | ManifestSelected ManifestUri
             | CanvasSelected ManifestUri CanvasUri
+            | ScrollToView ScrollInfo
 
 
 manifestList =
@@ -91,11 +93,14 @@ init flags =
     (emptyModel, Cmd.none, [])
       |> U.chain (manifestList.init flags)
 
+setContainerId : String -> Model -> Model
+setContainerId id_ model = {model | containerId = Just id_}
 
 emptyModel : Model
 emptyModel = 
   { collection = Nothing
   , manifestListModel = ManifestList.emptyModel
+  , containerId = Nothing
   , collapsible = 
       Collapsible.emptyModel 
         |> Collapsible.closed 
@@ -121,6 +126,7 @@ update msg model =
         |> loadCollection 
         |> U.chain (manifestList.updater (ManifestList.SetCollection iiif collection))
         |> U.mapModel updateCollectionInfo
+        |> U.chain scrollToTop
     SetCollectionMaybe iiif maybeCollection ->
       case maybeCollection of
         Just collection -> update (SetCollection iiif collection) model
@@ -129,6 +135,12 @@ update msg model =
       (model, Cmd.none, [])
         |> U.chain (checkCollectionLoaded notification)
         |> U.chain (manifestList.updater (ManifestList.IiifNotification notification))
+
+scrollToTop : Model -> ( Model, Cmd Msg, List OutMsg )
+scrollToTop model = 
+  case model.containerId of
+    Nothing -> (model, Cmd.none, [])
+    Just containerId -> (model, Cmd.none, [ScrollToView <| ScrollInfo containerId (ScrollPos 0) ScrollY False ScrollStart])
 
 checkCollectionLoaded : Iiif.Loading.Notification -> Model -> (Model, Cmd Msg, List OutMsg)
 checkCollectionLoaded notification model = 

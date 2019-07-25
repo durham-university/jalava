@@ -13,9 +13,11 @@ type ScrollAxis = ScrollX | ScrollY
 
 type ScrollAlignment = ScrollStart | ScrollMiddle
 
+type ScrollTarget = ScrollPos Int | ScrollRef String
+
 type alias ScrollInfo = 
   { containerId : String
-  , targetId : String
+  , target : ScrollTarget
   , axis : ScrollAxis
   , animate : Bool
   , alignment : ScrollAlignment

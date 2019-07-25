@@ -104,6 +104,7 @@ collectionView =
           CollectionView.LoadCollection uri -> (model, Cmd.none, [LoadCollection uri])
           CollectionView.ManifestSelected uri -> (model, Cmd.none, [ManifestSelected uri])
           CollectionView.CanvasSelected manifestUri canvasUri -> (model, Cmd.none, [CanvasSelected manifestUri canvasUri])
+          CollectionView.ScrollToView scrollInfo -> (model, Cmd.none, [ScrollToView scrollInfo])
     }
 
 manifestView = 
@@ -149,6 +150,7 @@ init flags url key =
     |> U.chain (collectionTree.init flags)
     |> U.mapModel (\m -> { m | collectionTreeModel = CollectionTree.setContainerId "collection_tree_container" m.collectionTreeModel })
     |> U.chain (collectionView.init flags)
+    |> U.mapModel (\m -> { m | collectionViewModel = CollectionView.setContainerId "collection_view_container" m.collectionViewModel })
     |> U.chain (manifestView.init flags)
     |> U.chain (parseUrl url)
     |> U.evalOut2 outMsgEvaluator
@@ -278,9 +280,12 @@ outMsgEvaluator msg model =
           alignment = case scrollInfo.alignment of
             ScrollStart -> "start"
             ScrollMiddle -> "middle"
+          scrollTarget = case scrollInfo.target of
+                            ScrollRef ref -> ("ref", Encode.string <| "#" ++ ref)
+                            ScrollPos pos -> ("pos", Encode.int pos)
           scrollCmd = outPortScrollToView (Encode.object
             [ ("container", Encode.string <| "#" ++ scrollInfo.containerId)
-            , ("item", Encode.string <| "#" ++ scrollInfo.targetId)
+            , scrollTarget
             , ("axis", Encode.string axis)
             , ("animate", Encode.bool scrollInfo.animate)
             , ("alignment", Encode.string alignment)
@@ -361,7 +366,7 @@ browserView : Model -> Html Msg
 browserView model =
   row 0 [fullWidth, fullHeight]
     [ el [style "flex-grow" "1", fullHeight, style "flex-shrink" "0", style "flex-basis" "0", style "overflow" "scroll", Attributes.id "collection_tree_container"] (collectionTree.view model)
-    , el [style "flex-grow" "2", fullHeight, style "flex-shrink" "0", style "flex-basis" "0", cssPadding <| cssPx 10, style "overflow-y" "scroll"] (collectionView.view model)
+    , el [style "flex-grow" "2", fullHeight, style "flex-shrink" "0", style "flex-basis" "0", cssPadding <| cssPx 10, style "overflow-y" "scroll", Attributes.id "collection_view_container"] (collectionView.view model)
     ]
 
 errorsView : Model -> Html Msg
