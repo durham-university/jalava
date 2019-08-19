@@ -195,13 +195,24 @@ view_ model =
           |> Button.onPress (CollapsibleMsg collapsibleMsg)
           |> Button.button
 
+        allPagesLoaded = case collection.pageStatus of
+          NoPages -> True
+          IndexPage -> False
+          MorePages -> False
+          LastPage -> True
+
+        countElement =
+          if allPagesLoaded then
+            el textBody (text <| pluralise (List.length collection.manifests) "manifest -" "manifests -")
+          else
+            el textBody (text <| pluralise (List.length collection.manifests) "manifest loaded (has more) -" "manifests loaded (has more) -")
       in
         column 0 [fullHeight, fullWidth] <|
           [ row 5 (textBody ++ [fullWidth, Attributes.style "font-size" "24px"]) [logoElem, text <| collectionToString collection, spinnerElem]
           , row 5 [fullWidth] [model.collapsible |> Collapsible.view |> Html.map CollapsibleMsg]
           , row 5 [fullWidth, cssColor <| Colors.toCss Colors.dimTextColor]
                   [ el [fullWidth, Attributes.style "flex-shrink" "1"] (toggleButton)
-                  , el textBody (text <| pluralise (List.length collection.manifests) "manifest -" "manifests -")
+                  , countElement
                   , el [] (IiifLink.iiifLink collection.id)
                   ]
           , el [Attributes.style "padding-top" <| cssPx 10, Attributes.style "padding-bottom" <| cssPx 15, fullHeight, fullWidth] (manifestList.view model)

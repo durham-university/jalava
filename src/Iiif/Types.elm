@@ -34,7 +34,9 @@ type alias Iiif =
   , annotationLists : AnnotationListDict
   }
 
-type Status = Stub | Loading | Full
+type Status = Stub | Loading | LoadingPage | Full
+
+type PageStatus = NoPages | IndexPage | MorePages | LastPage
 
 type alias Manifest =
   { id : ManifestUri
@@ -59,6 +61,9 @@ type alias Collection =
   , collections : List CollectionUri
   , manifests : List ManifestUri
   , status : Status
+  , pageStatus : PageStatus
+  , firstPage : Maybe CollectionUri
+  , nextPage : Maybe CollectionUri
   }
 
 type alias AnnotationList =

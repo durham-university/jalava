@@ -20,7 +20,7 @@ import UI.Screen exposing(screen)
 import Utils exposing(..)
 
 import Iiif.Types exposing(..)
-import Iiif.Loading exposing(loadManifest, loadCollection, loadAnnotationList)
+import Iiif.Loading exposing(loadManifest, loadCollection, loadAnnotationList, loadCollectionNextPage)
 import Iiif.Utils exposing(getManifest, getCollection)
 import UriMapper exposing (UriMapper)
 import Update as U
@@ -30,6 +30,8 @@ import CollectionView
 import ManifestView
 
 port inPortLazyLoadManifest : (String -> msg) -> Sub msg
+
+port inPortLazyLoadPagedCollection : (String -> msg) -> Sub msg
 
 port inPortShowAnnotation : (Maybe AnnotationUri -> msg) -> Sub msg
 
@@ -52,6 +54,7 @@ type Screen = Browser | Viewer
 type Msg
   = LinkClicked Browser.UrlRequest
   | LazyLoadManifest ManifestUri
+  | LazyLoadPagedCollection CollectionUri
   | UrlChanged Url.Url
   | CollectionTreeMsg CollectionTree.Msg
   | CollectionViewMsg CollectionView.Msg
@@ -63,6 +66,7 @@ type Msg
 
 type OutMsg
   = LoadCollection CollectionUri
+  | LoadCollectionPage CollectionUri
   | LoadManifest ManifestUri
   | LoadAnnotationList AnnotationListUri
   | CollectionSelected (List CollectionUri)
@@ -240,6 +244,12 @@ outMsgEvaluator msg model =
         |> U.mapModel (\m -> {model | iiif = m})
         |> U.mapCmd IiifMsg
         |> U.ignoreOut
+    LoadCollectionPage collectionUri ->
+      (model.iiif, Cmd.none, [])
+        |> U.chain2 (loadCollectionNextPage collectionUri)
+        |> U.mapModel (\m -> {model | iiif = m})
+        |> U.mapCmd IiifMsg
+        |> U.ignoreOut
     LoadAnnotationList annotationListUri ->
       (model.iiif, Cmd.none, [])
         |> U.chain2 (loadAnnotationList annotationListUri)
@@ -301,6 +311,9 @@ update msg model =
     LazyLoadManifest manifestUri ->
       (model, Cmd.none, [LoadManifest manifestUri])
         |> U.evalOut2 outMsgEvaluator
+    LazyLoadPagedCollection collectionUri ->
+      (model, Cmd.none, [LoadCollectionPage collectionUri])
+        |> U.evalOut2 outMsgEvaluator
     LinkClicked urlRequest ->
       case urlRequest of
         Browser.Internal url ->
@@ -344,6 +357,7 @@ update msg model =
 subscriptions : Model -> Sub Msg
 subscriptions model = Sub.batch
   [ inPortLazyLoadManifest LazyLoadManifest
+  , inPortLazyLoadPagedCollection LazyLoadPagedCollection
   , inPortShowAnnotation ShowAnnotation
   , collectionTree.subscriptions model
   , collectionView.subscriptions model

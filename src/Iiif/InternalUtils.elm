@@ -22,6 +22,28 @@ merge  a b =
       , annotationLists = Dict.foldl (\x -> dictInsert) a.annotationLists b.annotationLists
       }
 
+mergePage : CollectionUri -> Iiif -> Iiif -> Iiif
+mergePage collectionUri a b =
+  let
+    maybeNewPage = Dict.get collectionUri b.collections
+    maybeBaseCollection = Dict.get collectionUri a.collections
+  in
+    case (maybeBaseCollection, maybeNewPage) of
+      (Just baseCollection, Just newPage) -> 
+        let
+          mergedCollection =  { baseCollection 
+                              | manifests = baseCollection.manifests ++ newPage.manifests
+                              , collections = baseCollection.collections ++ newPage.collections
+                              , nextPage = newPage.nextPage
+                              , pageStatus = case newPage.nextPage of
+                                              Just _ -> MorePages
+                                              _ -> LastPage
+                              }
+          mergedB = {b | collections = Dict.insert collectionUri mergedCollection b.collections}
+        in
+          merge a mergedB
+      (_, _) -> a
+
 addManifest : Manifest -> Iiif -> Iiif
 addManifest manifest iiif = 
   { iiif | manifests = dictInsert manifest iiif.manifests }

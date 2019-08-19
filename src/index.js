@@ -106,8 +106,12 @@ window.mountJalava = function(mountNode, config){
   document.addEventListener('lazybeforeunveil', function (e) {
     var elem = $(e.target);
     if (elem.hasClass("manifest_lazyload")) {
-      var uri = elem.data("manifest-uri")
+      var uri = elem.data("manifest-uri");
       if (uri) app.ports.inPortLazyLoadManifest.send(uri);
+    }
+    else if(elem.hasClass("collection_page_lazyload")) {
+      var uri = elem.data("collection-uri");
+      if (uri) app.ports.inPortLazyLoadPagedCollection.send(uri);
     }
   });
 };

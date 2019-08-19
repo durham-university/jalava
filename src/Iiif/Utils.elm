@@ -30,6 +30,7 @@ isStub obj =
   case obj.status of
     Stub -> True
     Loading -> True
+    LoadingPage -> False
     Full -> False
 
 manifestToString : Manifest -> String

@@ -158,8 +158,8 @@ canvasLine model =
             |> CanvasButton.onPress (CanvasClicked canvas.id)
             |> CanvasButton.canvasButton
       in
-        if isStub manifest_ then row 5 [] [Spinner.spinnerThumbnail]
-        else row 5 [Attributes.style "overflow" "hidden", fullWidth] (List.map canvasElement canvases)
+        if isStub manifest_ then row 5 [Attributes.style "min-height" "60px"] [Spinner.spinnerThumbnail]
+        else row 5 [Attributes.style "overflow" "hidden", Attributes.style "min-height" "60px", fullWidth] (List.map canvasElement canvases)
 
 
 footer : Model -> Html Msg

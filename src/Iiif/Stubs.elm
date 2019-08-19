@@ -28,6 +28,9 @@ stubCollection id label logo =
   , collections = []
   , manifests = []
   , status = Stub
+  , pageStatus = NoPages
+  , firstPage = Nothing
+  , nextPage = Nothing
   }
 
 stubAnnotationList : AnnotationListUri -> AnnotationList

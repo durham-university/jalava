@@ -17,6 +17,7 @@ import Iiif.Loading
 import Iiif.ImageApi
 
 import IiifUI.ManifestPanel as ManifestPanel
+import IiifUI.Spinner as Spinner
 
 import Utils exposing(pluralise, wrapKey)
 import Update as U
@@ -108,7 +109,10 @@ update msg model =
       case model.collection of
         Nothing -> model |> U.noSideEffects
         Just _ -> { model | manifests = [], collection = Nothing } |> resetPanels |> U.noSideEffects
-    SetCollection iiif collection -> { model | collection = Just collection } |> updateCollectionManifests iiif |> resetPanels |> U.noSideEffects
+    SetCollection iiif collection -> 
+      ({ model | collection = Just collection }, Cmd.none, [])
+      |> U.mapModel (updateCollectionManifests iiif)
+      |> U.mapModel (resetPanels)
     IiifNotification notification -> 
       checkCollectionLoaded notification model
       |> U.chain (updateAllPanels (ManifestPanel.IiifNotification notification))
@@ -161,5 +165,18 @@ view model = Lazy.lazy view_ model
 
 view_ : Model -> Html Msg
 view_ model = 
-  column 15 [fullWidth, fullHeight] (List.indexedMap (\ind uri -> (manifestPanel ind).view model) model.manifests)
+  let
+    pageLoader = case model.collection of
+      Nothing -> []
+      Just collection ->
+        let
+          loaderDiv = [Html.div [Attributes.class "lazyload collection_page_lazyload", Attributes.attribute "data-collection-uri" collection.id] [Spinner.spinnerThumbnail]]
+        in
+          case collection.pageStatus of
+            NoPages -> []
+            LastPage -> []
+            IndexPage -> loaderDiv
+            MorePages -> loaderDiv
+  in
+    column 15 [fullWidth, fullHeight] <| (List.indexedMap (\ind uri -> (manifestPanel ind).view model) model.manifests) ++ pageLoader
   

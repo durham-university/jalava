@@ -292,6 +292,15 @@ collectionDecoder =
       |> custom (Decode.map (List.map .id) subCollections)
       |> custom (Decode.map (List.map .id) manifests)
       |> hardcoded Full
+      -- This assumes that this is the main page for the collection.
+      -- PageStatus is set appropriately in Loading for subsequent pages.
+      |> custom ( Decode.oneOf
+                    -- if "first" field is present, then IndexPage, otherwise NoPages
+                    [ Decode.field "first" Decode.string |> Decode.map (\_ -> IndexPage)
+                    , Decode.succeed NoPages
+                    ] )
+      |> optional "first" (Decode.nullable Decode.string) Nothing
+      |> optional "next" (Decode.nullable Decode.string) Nothing
     collectionUri = Decode.map .id collection
 
     subCollectionsDict = subCollections
