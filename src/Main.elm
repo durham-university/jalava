@@ -379,7 +379,7 @@ subscriptions model = Sub.batch
 
 view : Model -> Browser.Document Msg
 view model =
-  { title = "Elm IIIF"
+  { title = "Jalava"
   , body = 
     [ screen (model.screen == Browser) (browserView model)
     , screen (model.screen == Viewer) (manifestView.view model)
