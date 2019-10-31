@@ -96,8 +96,10 @@ update msg model =
       ({model | selection = Nothing}, cmd, [])
     SetCanvas c -> 
       case c of
-        Just (ma, ca) -> ({model | manifest = Just ma, canvas = Just ca}, Cmd.none, [])
-        Nothing -> ({model | manifest = Nothing, canvas = Nothing}, Cmd.none, [])
+        Just (ma, ca) -> 
+          ({model | manifest = Just ma, canvas = Just ca}, Cmd.none, [])
+          |> U.chainIf (model.canvas /= Just ca) (update ClearSelection)
+        Nothing -> ({model | manifest = Nothing, canvas = Nothing, selection = Nothing}, Cmd.none, [])
     SetLabel s -> ({model | label = s}, Cmd.none, [])
     CopyToClipboardInt s -> (model, Cmd.none, [CopyToClipboard s])
 

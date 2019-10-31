@@ -241,6 +241,7 @@ update msg model =
         |> U.chain (canvasList.updater (CanvasList.SetManifest maybeManifest))
         |> U.chain (canvasList.updater (CanvasList.SelectCanvas maybeCanvasUri))
         |> U.chainIf manifestChanging (manifestMenu.updater (ManifestMenu.ResetMenu))
+        |> U.chainIf manifestChanging (setToolsOpen False)
         |> U.chain (manifestMenu.updater (ManifestMenu.SetManifest maybeManifest))
         |> U.chain (manifestMenu.updater (ManifestMenu.SetCanvas maybeCanvasUri))
         |> U.chain (manifestMenu.updater (ManifestMenu.SetMenuOpen (model.menuModel.open && not manifestChanging)))
