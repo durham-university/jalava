@@ -37,6 +37,10 @@ port inPortShowAnnotation : (Maybe AnnotationUri -> msg) -> Sub msg
 
 port outPortScrollToView : Encode.Value -> Cmd msg
 
+port outPortCopyToClipboard : String -> Cmd msg
+
+port inPortSetSelection : (Decode.Value -> msg) -> Sub msg
+
 type alias Model =
   { key : Nav.Key
   , url : Url.Url
@@ -63,6 +67,7 @@ type Msg
   | IiifNotification Iiif.Loading.Notification
   | CloseError Int
   | ShowAnnotation (Maybe AnnotationUri)
+  | SetSelection Decode.Value
 
 type OutMsg
   = LoadCollection CollectionUri
@@ -76,6 +81,7 @@ type OutMsg
   | CloseViewer
   | RequestIiif (Iiif -> Msg)
   | ScrollToView ScrollInfo
+  | CopyToClipboard String
 
 
 collectionTree =
@@ -126,6 +132,7 @@ manifestView =
           ManifestView.CloseViewer -> (model, Cmd.none, [CloseViewer])
           ManifestView.RequestIiif iiifMsg -> (model, Cmd.none, [RequestIiif (ManifestViewMsg << iiifMsg)])
           ManifestView.ScrollToView scrollInfo -> (model, Cmd.none, [ScrollToView scrollInfo])
+          ManifestView.CopyToClipboard s -> (model, Cmd.none, [CopyToClipboard s])
     }
 
 
@@ -301,7 +308,7 @@ outMsgEvaluator msg model =
             , ("alignment", Encode.string alignment)
             ])
         in (model, scrollCmd)
-
+    CopyToClipboard s -> (model, outPortCopyToClipboard s)
 
 
 
@@ -352,6 +359,10 @@ update msg model =
         |> U.chain (collectionView.updater (CollectionView.IiifNotification notification))
         |> U.chain (manifestView.updater (ManifestView.IiifNotification notification))
         |> U.evalOut2 outMsgEvaluator
+    SetSelection value -> 
+      (model, Cmd.none, [])
+        |> U.chain (manifestView.updater (ManifestView.SetSelection value))
+        |> U.evalOut2 outMsgEvaluator
 
 
 subscriptions : Model -> Sub Msg
@@ -362,6 +373,7 @@ subscriptions model = Sub.batch
   , collectionTree.subscriptions model
   , collectionView.subscriptions model
   , manifestView.subscriptions model
+  , inPortSetSelection SetSelection
   ]
 
 

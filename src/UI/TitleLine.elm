@@ -55,7 +55,13 @@ simple : String -> Html msg
 simple content_ = empty |> content (text content_) |> titleLine
 
 withIcon : String -> String -> Html msg
-withIcon icon_ content_ = empty |> icon (Icon.icon icon_ []) |> content (text content_) |> titleLine
+withIcon = withIcon2 Icon.Solid
+
+withIcon2 : Icon.IconStyle -> String -> String -> Html msg
+withIcon2 style icon_ content_ = empty |> icon (Icon.icon2 style icon_ []) |> content (text content_) |> titleLine
 
 iconOnly : String -> Html msg
-iconOnly icon_ = empty |> icon (Icon.icon icon_ []) |> titleLine
+iconOnly = iconOnly2 Icon.Solid
+
+iconOnly2 : Icon.IconStyle -> String -> Html msg
+iconOnly2 style icon_ = empty |> icon (Icon.icon2 style icon_ []) |> titleLine

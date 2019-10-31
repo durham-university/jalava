@@ -233,3 +233,22 @@ body {
 
 // This is for old IE compatibility without grid support
 .grid > div > div.el > * { max-width: 100%; }
+
+.selectionHandle {
+  opacity: 0.2;
+  cursor: move;
+  &:hover {
+    opacity: 0.5;
+  }
+}
+
+input, textarea {
+  padding: 5px;
+  border-radius: 5px;
+  border: 1px solid $color-dark;
+  &:focus {
+    box-shadow: 0 0 0 0.2rem transparentize($color-primary,0.7);
+    border: 1px solid $color-dark;
+    outline: none;
+  }
+}
