@@ -51,6 +51,7 @@ type alias Model =
   , screen : Screen
   , uriMapper : UriMapper
   , errors : List String
+  , iiifOptions : Iiif.Loading.Options
   }
 
 type Screen = Browser | Viewer
@@ -158,6 +159,7 @@ init flags url key =
   in
   (emptyModel url key, Cmd.none, [])
     |> setUriMapper
+    |> U.mapModel (\m -> { m | iiifOptions = Iiif.Loading.readOptions flags})
     |> U.chain (collectionTree.init flags)
     |> U.mapModel (\m -> { m | collectionTreeModel = CollectionTree.setContainerId "collection_tree_container" m.collectionTreeModel })
     |> U.chain (collectionView.init flags)
@@ -234,6 +236,7 @@ emptyModel url key =
   , screen = Browser
   , uriMapper = UriMapper.empty
   , errors = []
+  , iiifOptions = Iiif.Loading.defaultOptions
   }
 
 outMsgEvaluator : OutMsg -> Model -> (Model, Cmd Msg)
@@ -241,25 +244,25 @@ outMsgEvaluator msg model =
   case msg of
     LoadManifest manifestUri ->
       (model.iiif, Cmd.none, [])
-        |> U.chain2 (loadManifest manifestUri)
+        |> U.chain2 (loadManifest model.iiifOptions manifestUri)
         |> U.mapModel (\m -> {model | iiif = m})
         |> U.mapCmd IiifMsg
         |> U.ignoreOut    
     LoadCollection collectionUri -> 
       (model.iiif, Cmd.none, [])
-        |> U.chain2 (loadCollection collectionUri)
+        |> U.chain2 (loadCollection model.iiifOptions collectionUri)
         |> U.mapModel (\m -> {model | iiif = m})
         |> U.mapCmd IiifMsg
         |> U.ignoreOut
     LoadCollectionPage collectionUri ->
       (model.iiif, Cmd.none, [])
-        |> U.chain2 (loadCollectionNextPage collectionUri)
+        |> U.chain2 (loadCollectionNextPage model.iiifOptions collectionUri)
         |> U.mapModel (\m -> {model | iiif = m})
         |> U.mapCmd IiifMsg
         |> U.ignoreOut
     LoadAnnotationList annotationListUri ->
       (model.iiif, Cmd.none, [])
-        |> U.chain2 (loadAnnotationList annotationListUri)
+        |> U.chain2 (loadAnnotationList model.iiifOptions annotationListUri)
         |> U.mapModel (\m -> {model | iiif = m})
         |> U.mapCmd IiifMsg
         |> U.ignoreOut
@@ -349,7 +352,7 @@ update msg model =
         |> U.chain (manifestView.updater (ManifestView.ShowAnnotationPort model.iiif maybeAnnotationUri))
         |> U.evalOut2 outMsgEvaluator
     IiifMsg iiifMsg ->
-      let (newModel, maybeNotification) = Iiif.Loading.update iiifMsg model
+      let (newModel, maybeNotification) = Iiif.Loading.update model.iiifOptions iiifMsg model
       in case maybeNotification of
         Just notification -> update (IiifNotification notification) newModel
         Nothing -> (newModel, Cmd.none)

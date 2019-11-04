@@ -16,6 +16,7 @@ import UI.Icon as Icon
 import UI.Colors as Colors
 import IiifUI.Spinner as Spinner
 import IiifUI.ManifestTitle as ManifestTitle
+import Iiif.Loading
 
 import Update as U
 import Utils exposing(pluralise, flip, ScrollInfo, ScrollAlignment(..), ScrollAxis(..))
@@ -45,6 +46,7 @@ type alias Model =
   , showSharingTools : Bool
   , sharingToolsOpen : Bool
   , selectionModel : SharingTools.Model
+  , loadingOptions : Iiif.Loading.Options
   }
 
 
@@ -125,8 +127,8 @@ openCanvasInOsd model =
     maybeSourceValue = 
       case maybeSource of
         Nothing -> Nothing
-        Just (ImageSource url) -> Just <| Encode.object [("sourceType", Encode.string "image"), ("url", Encode.string url)]
-        Just (IiifSource url) -> Just <| Encode.object [("sourceType", Encode.string "iiif"), ("url", Encode.string url)]
+        Just (ImageSource url) -> Just <| Encode.object [("sourceType", Encode.string "image"), ("url", Encode.string (Iiif.Loading.toRequestUri model.loadingOptions url))]
+        Just (IiifSource url) -> Just <| Encode.object [("sourceType", Encode.string "iiif"), ("url", Encode.string (Iiif.Loading.toRequestUri model.loadingOptions url))]
     maybeCmd = Maybe.map
       (\sourceValue -> 
         outPortOsdCmd (Encode.object 
@@ -188,12 +190,15 @@ init flags =
       case decodedShowSharingTools of
         Result.Ok u -> U.mapModel (\m -> {m | showSharingTools = u})
         Result.Err e -> identity
+
+    loadingOptions = Iiif.Loading.readOptions flags
   in
   (emptyModel, Cmd.none, [])
     |> U.chain (canvasList.init flags)
     |> U.mapModel (\m -> { m | canvasListModel = CanvasList.setContainerId "manifest_view_canvas_list" m.canvasListModel })
     |> U.chain (manifestMenu.init flags)
     |> U.chain (sharingTools.init flags)
+    |> U.mapModel (\m -> {m | loadingOptions = loadingOptions})
     |> setShowSharingTools
 
 
@@ -208,6 +213,7 @@ emptyModel  =
   , showSharingTools = True
   , sharingToolsOpen = False
   , selectionModel = SharingTools.emptyModel
+  , loadingOptions = Iiif.Loading.defaultOptions
   }
 
 update : Msg -> Model -> ( Model, Cmd Msg, List OutMsg )

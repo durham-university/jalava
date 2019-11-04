@@ -22,7 +22,8 @@ window.mountJalava = function(mountNode, config) {
       uriMapper: {
         inflaters: [],
         deflaters: []
-      }
+      },
+      forceHttps : false
     }, config || {})
   });
   var overlayApp = null;
