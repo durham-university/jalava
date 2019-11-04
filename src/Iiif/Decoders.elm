@@ -143,7 +143,14 @@ jsonLdValueDecoder valueDecoder =
 
 jsonLdValueStringDecoder : Decode.Decoder (Maybe String)
 jsonLdValueStringDecoder =
-  (jsonLdValueDecoder Decode.string)
+  let
+    -- This is for slightly broken IIIF where a number is used in place of a string
+    stringOrInt = Decode.oneOf
+      [ Decode.string
+      , Decode.int |> Decode.map String.fromInt
+      ]
+  in
+  (jsonLdValueDecoder stringOrInt)
     |> Decode.map List.head
     |> Decode.map (Maybe.map .value)
 
