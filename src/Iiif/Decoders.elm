@@ -76,6 +76,9 @@ resourceDecoder : Decode.Decoder Resource
 resourceDecoder = 
   Decode.oneOf 
   [ Decode.string |> Decode.map (\id -> Resource (Just id) Nothing Nothing Nothing Nothing Nothing Nothing Nothing)
+  , Decode.succeed (\_ default -> default)
+      |> required "@type" (Decode.string |> requiredValue "oa:Choice")
+      |> required "default" (Decode.lazy (\_ -> resourceDecoder))
   , Decode.succeed Resource
       |> optional "@id" (Decode.nullable Decode.string) Nothing
       |> optional "@type" (Decode.nullable Decode.string) Nothing
