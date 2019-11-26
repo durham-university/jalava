@@ -140,8 +140,10 @@ view model =
       _ -> Nothing
 
     contentState64Maybe = Maybe.andThen (\cs -> Bytes.Encode.string cs |> Bytes.Encode.encode |> Base64.fromBytes) contentStateMaybe
+    
+    contentStateUrlMaybe = Maybe.map ((String.replace "+" "-") << (String.replace "/" "_") << (String.replace "=" "")) contentState64Maybe
 
-    contentStateLinkMaybe = Maybe.map2 (\cs viewer -> viewer ++ "?iiif-content=" ++ cs) contentState64Maybe model.iiifViewerUrl
+    contentStateLinkMaybe = Maybe.map2 (\cs viewer -> viewer ++ "?iiif-content=" ++ cs) contentStateUrlMaybe model.iiifViewerUrl
   in
   column 10 
     [ fullWidth
@@ -216,12 +218,12 @@ view model =
                 |> Button.onPress (CopyToClipboardInt cs)
                 |> Button.button
           , column 5 [fullWidth] 
-              [ el [] <| text "Content State:"
+              [ el [] <| text "Content State (json):"
               , Html.textarea [Attributes.style "overflow" "auto", Attributes.rows 3, fullWidth] [text <| cs]
               ]
           ]
         Nothing -> text ""
-    , case contentState64Maybe of
+    , case contentStateUrlMaybe of
         Just cs ->
           row 5 [fullWidth]
           [ Button.light
@@ -229,7 +231,7 @@ view model =
                 |> Button.onPress (CopyToClipboardInt cs)
                 |> Button.button
           , column 5 [fullWidth] 
-              [ el [] <| text "Content State Base64:"
+              [ el [] <| text "Content State (base64url):"
               , Html.textarea [ Attributes.style "overflow" "auto", Attributes.rows 3, fullWidth] [text <| cs]
               ]
           ]
