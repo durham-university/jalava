@@ -1,4 +1,4 @@
-port module ManifestMenu exposing(Model, Msg(..), OutMsg(..), init, view, update, emptyModel, component)
+module ManifestMenu exposing(Model, Msg(..), OutMsg(..), init, view, update, emptyModel, component)
 
 import Url
 import Json.Decode as Decode
