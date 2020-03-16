@@ -1,4 +1,4 @@
-port module UIGallery exposing(..)
+module UIGallery exposing(..)
 
 import Browser
 import Browser.Navigation as Nav

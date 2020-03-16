@@ -1,4 +1,4 @@
-port module StructuresView exposing(Model, Msg(..), OutMsg(..), init, view, update, emptyModel, component)
+module StructuresView exposing(Model, Msg(..), OutMsg(..), init, view, update, emptyModel, component)
 
 import Url
 import Json.Decode as Decode
