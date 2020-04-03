@@ -10,9 +10,6 @@ import Iiif.ImageApi as ImageApi
 import Iiif.Utils exposing(..)
 import IiifUI.IiifLink exposing(iiifIcon)
 
-import Bytes.Encode
-import Base64
-
 import Html exposing(..)
 import Html.Attributes as Attributes exposing(style)
 import Html.Events as Events
@@ -125,25 +122,9 @@ view model =
               |> Maybe.andThen .service      
               |> Maybe.map (ImageApi.imageServiceUrl ImageApi.FullRegion ImageApi.FullSize ImageApi.NoRotation ImageApi.Default "jpg")
 
-    xywhMaybe = model.selection |> Maybe.map (\rect -> [rect.x, rect.y, rect.w, rect.h] |> List.map (String.fromInt << round) |> String.join ",")
+    contentStateMaybe = model.manifest |> Maybe.andThen (\m -> contentState m canvasMaybe model.selection (Just model.label))
 
-    xywhTextMaybe = model.selection |> Maybe.map (\rect -> [("x", rect.x), ("y", rect.y), ("w", rect.w), ("h", rect.h)] |> List.map (\(label, v) -> label ++ " = " ++ (String.fromFloat v)) |> String.join " ")
-
-    contentStateMaybe = case (model.manifest, canvasMaybe, xywhMaybe) of
-      (Just m, Just c, Just xywh) -> Just <|
-        "{\"@context\": \"http://iiif.io/api/presentation/0/context.json\", \"id\": \"" ++ c.id ++ "_xywh_" ++ xywh ++ 
-        "\", \"type\": \"Annotation\", \"motivation\": [\"contentState\"], \"resource\": {\"type\": \"dctypes:Text\", " ++ 
-        "\"format\":\"text/plain\", \"chars\":\"" ++ model.label ++ "\"}, \"target\": {\"id\":\"" ++ c.id ++ "#xywh=" ++ xywh ++
-        "\", \"type\":\"Canvas\", \"partOf\":{\"id\": \"" ++ m.id ++ "\",\"type\":\"Manifest\"}}}"
-      (Just m, Just c, _) -> Just <|
-        "{\"id\":\"" ++ c.id ++ "\", \"type\":\"Canvas\", \"partOf\":{\"id\": \"" ++ m.id ++ "\",\"type\":\"Manifest\"}}"
-      _ -> Nothing
-
-    contentState64Maybe = Maybe.andThen (\cs -> Bytes.Encode.string cs |> Bytes.Encode.encode |> Base64.fromBytes) contentStateMaybe
-    
-    contentStateUrlMaybe = Maybe.map ((String.replace "+" "-") << (String.replace "/" "_") << (String.replace "=" "")) contentState64Maybe
-
-    contentStateLinkMaybe = Maybe.map2 (\cs viewer -> viewer ++ "?iiif-content=" ++ cs) contentStateUrlMaybe model.iiifViewerUrl
+    contentStateLinkMaybe = Maybe.map2 (\cs viewer -> viewer ++ "?iiif-content=" ++ cs) contentStateMaybe model.iiifViewerUrl
   in
   column 10 
     [ fullWidth
@@ -223,7 +204,7 @@ view model =
               ]
           ]
         Nothing -> text ""
-    , case contentStateUrlMaybe of
+    , case contentStateMaybe of
         Just cs ->
           row 5 [fullWidth]
           [ Button.light

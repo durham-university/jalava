@@ -1,7 +1,9 @@
 module IiifUI.ManifestPanel exposing(..)
 
 import Json.Decode as Decode
+import Json.Decode.Pipeline as DecodeP
 import Dict
+import Regex
 
 import Iiif.Loading
 
@@ -28,11 +30,12 @@ import Update as U
 import Utils exposing(pluralise)
 
 import Iiif.Types exposing(..)
-import Iiif.Utils exposing(getManifest, isStub)
+import Iiif.Utils exposing(getManifest, isStub, contentState)
 
 type alias Model =
   { manifest : Maybe Manifest
   , collapsible : Collapsible.Model
+  , linkers : List ManifestLinker
   }
 
 type Msg  = CollapsibleMsg Collapsible.Msg
@@ -42,6 +45,15 @@ type Msg  = CollapsibleMsg Collapsible.Msg
 
 type OutMsg = ManifestSelected
             | CanvasSelected CanvasUri
+
+type alias ManifestLink = 
+  { url : String
+  , icon : Maybe String
+  , label : Maybe String
+  }
+
+type alias ManifestLinker = Manifest -> Maybe ManifestLink
+
 
 component : U.Component Model Msg OutMsg
 component = { init = init, emptyModel = emptyModel, update = update, view = view, subscriptions = subscriptions }
@@ -55,6 +67,49 @@ collapsible =
     , outEvaluator = \msgSub model -> (model, Cmd.none, [])
     }
 
+makeManifestLinker : Maybe String -> Maybe String -> Maybe String -> Maybe String -> ManifestLinker
+makeManifestLinker maybeLabel maybeIcon maybeMatchManifest maybeReplaceContentState =
+  let
+    maybeManifestRegex = Maybe.andThen Regex.fromString maybeMatchManifest
+
+    replacer : ManifestLinker
+    replacer m =
+      case maybeReplaceContentState of
+        Nothing -> Nothing
+        Just replaceContentState -> 
+          case (contentState m Nothing Nothing Nothing) of
+            Nothing -> Nothing
+            Just contentState_ -> 
+              Just  { url = String.replace "__contentstate__" contentState_ replaceContentState
+                    , label = maybeLabel
+                    , icon = maybeIcon
+                    }
+    
+    matcher : ManifestLinker -> ManifestLinker
+    matcher linker m = 
+      case maybeManifestRegex of
+        Nothing -> linker m
+        Just manifestRegex -> 
+          if List.isEmpty <| Regex.find manifestRegex m.id then
+            Nothing
+          else
+            linker m
+
+  in
+  matcher replacer
+
+manifestLinkerDecoder : Decode.Decoder ManifestLinker
+manifestLinkerDecoder = 
+  Decode.succeed makeManifestLinker
+  |> DecodeP.optional "label" (Decode.nullable Decode.string) Nothing
+  |> DecodeP.optional "icon" (Decode.nullable Decode.string) Nothing
+  |> DecodeP.optional "matchManifest" (Decode.nullable Decode.string) Nothing
+  |> DecodeP.optional "replaceContentState" (Decode.nullable Decode.string) Nothing
+
+manifestLinkersDecoder : Decode.Decoder (List ManifestLinker)
+manifestLinkersDecoder = Decode.list manifestLinkerDecoder
+
+
 init : Decode.Value -> ( Model, Cmd Msg, List OutMsg )
 init flags = (emptyModel, Cmd.none, [])
 
@@ -66,6 +121,7 @@ emptyModel =
         |> Collapsible.closed 
         |> Collapsible.labels (text "Show manifest details") (text "Hide manifest details")
         |> Collapsible.attributes [fullWidth]
+  , linkers = []
   }
 
 subscriptions : Model -> Sub Msg
@@ -116,6 +172,10 @@ id : String -> Model -> Model
 id id_ model =
  {model | collapsible = model.collapsible |> Collapsible.id id_}
 
+linkers : List ManifestLinker -> Model -> Model
+linkers linkers_ model =
+  {model | linkers = linkers_ }
+
 view : Model -> Html Msg
 view model = Lazy.lazy view_ model
 
@@ -162,6 +222,18 @@ canvasLine model =
         else row 5 [Attributes.style "overflow" "hidden", Attributes.style "min-height" "60px", fullWidth] (List.map canvasElement canvases)
 
 
+manifestLinkView : ManifestLink -> Html Msg
+manifestLinkView link =
+  let 
+    content =
+      case (link.icon, link.label) of
+        (Just icon, Just label) -> img [Attributes.height 18, Attributes.width 21, Attributes.src icon, Attributes.alt label] []
+        (Just icon, Nothing) -> img [Attributes.height 18, Attributes.width 21, Attributes.src icon] []
+        (Nothing, Just label) -> text label
+        (Nothing, Nothing) -> text "Link"
+  in
+  a [Attributes.href link.url, Attributes.target "_blank"] [content]
+
 footer : Model -> Html Msg
 footer model =
   case model.manifest of
@@ -176,10 +248,15 @@ footer model =
           |> Button.content (toggleLabel |> Html.map CollapsibleMsg)
           |> Button.onPress (CollapsibleMsg collapsibleMsg)
           |> Button.button
+
+        manifestLinks = List.filterMap (\linker -> 
+            case linker manifest_ of
+              Just link -> Just <| el [] (manifestLinkView link)
+              Nothing -> Nothing) model.linkers
       in
-      row 5 [fullWidth, cssColor <| Colors.toCss Colors.dimTextColor]
+      row 5 [fullWidth, cssColor <| Colors.toCss Colors.dimTextColor] <| 
         [ el [fullWidth, Attributes.style "flex-shrink" "1"] (toggleButton)
         , el [] (text <| pluralise (List.length canvases) "image -" "images -")
         , el [] (IiifLink.iiifLink manifest_.id)
-        ]
+        ] ++ manifestLinks
 

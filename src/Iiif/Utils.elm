@@ -7,6 +7,16 @@ import Iiif.Types exposing(..)
 import Iiif.Stubs exposing(..)
 import Iiif.InternalUtils exposing(..)
 
+import Bytes.Encode
+import Base64
+
+type alias Rect =
+  { x : Float
+  , y : Float
+  , w : Float
+  , h : Float
+  }
+
 empty : Iiif
 empty = 
   { collections = Dict.empty
@@ -112,3 +122,25 @@ getCanvasAnnotation iiif canvas annotationUri =
     |> List.map .annotations
     |> List.concat
     |> ListE.find (\a -> a.id == Just annotationUri)
+
+contentStateJson : Manifest -> Maybe Canvas -> Maybe Rect -> Maybe String -> Maybe String
+contentStateJson m canvasMaybe rectMaybe labelMaybe = 
+  let
+    xywhMaybe = rectMaybe |> Maybe.map (\rect -> [rect.x, rect.y, rect.w, rect.h] |> List.map (String.fromInt << round) |> String.join ",")
+    label = labelMaybe |> Maybe.withDefault "Link target"
+  in
+  case (canvasMaybe, xywhMaybe) of
+      (Just c, Just xywh) -> Just <|
+        "{\"@context\": \"http://iiif.io/api/presentation/0/context.json\", \"id\": \"" ++ c.id ++ "_xywh_" ++ xywh ++ 
+        "\", \"type\": \"Annotation\", \"motivation\": [\"contentState\"], \"resource\": {\"type\": \"dctypes:Text\", " ++ 
+        "\"format\":\"text/plain\", \"chars\":\"" ++ label ++ "\"}, \"target\": {\"id\":\"" ++ c.id ++ "#xywh=" ++ xywh ++
+        "\", \"type\":\"Canvas\", \"partOf\":{\"id\": \"" ++ m.id ++ "\",\"type\":\"Manifest\"}}}"
+      (Just c, _) -> Just <|
+        "{\"id\":\"" ++ c.id ++ "\", \"type\":\"Canvas\", \"partOf\":{\"id\": \"" ++ m.id ++ "\",\"type\":\"Manifest\"}}"
+      _ -> Just <| "{\"id\":\"" ++ m.id ++ "\", \"type\":\"Manifest\"}"
+
+contentState : Manifest -> Maybe Canvas -> Maybe Rect -> Maybe String -> Maybe String
+contentState m canvasMaybe rectMaybe labelMaybe =
+  contentStateJson m canvasMaybe rectMaybe labelMaybe
+  |> Maybe.andThen (\cs -> Bytes.Encode.string cs |> Bytes.Encode.encode |> Base64.fromBytes)
+  |> Maybe.map ((String.replace "+" "-") << (String.replace "/" "_") << (String.replace "=" ""))
