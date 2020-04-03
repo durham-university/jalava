@@ -1,14 +1,8 @@
 module SelectionTypes exposing(..)
 
+import Iiif.Utils exposing(Rect)
 import Json.Decode as Decode
 import Json.Encode as Encode
-
-type alias Rect =
-  { x : Float
-  , y : Float
-  , w : Float
-  , h : Float
-  }
 
 type SelectionOverlayMsg  = SetSelectionEnabled Bool
                           | ClearSelection

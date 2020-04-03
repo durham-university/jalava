@@ -28,6 +28,7 @@ type alias Model =
   , collection : Maybe Collection
   , selectedManifest : Maybe ManifestUri
   , panelModels : List (ManifestPanel.Model)
+  , manifestLinkers : List (ManifestPanel.ManifestLinker)
   , errors : List String
   }
 
@@ -76,7 +77,15 @@ updateAllPanels msg model =
     Tuple.second <| List.foldl folder (0, (model, Cmd.none, [])) model.manifests
 
 init : Decode.Value -> ( Model, Cmd Msg, List OutMsg )
-init flags = (emptyModel, Cmd.none, [])
+init flags =
+  let
+    decodedLinkers = Decode.decodeValue (Decode.maybe (Decode.field "manifestLinks" ManifestPanel.manifestLinkersDecoder) |> Decode.map (Maybe.withDefault [])) flags
+    setLinkers = case decodedLinkers of
+      Result.Ok linkers -> U.mapModel (\m -> {m | manifestLinkers = linkers })
+      Result.Err err -> U.mapModel (\m -> {m | errors = m.errors ++ [Decode.errorToString err] })
+  in
+  (emptyModel, Cmd.none, [])
+  |> setLinkers
 
 subscriptions : Model -> Sub Msg
 subscriptions model = 
@@ -87,6 +96,7 @@ emptyModel =
   , collection = Nothing
   , selectedManifest = Nothing
   , panelModels = []
+  , manifestLinkers = []
   , errors = []
   }
 
@@ -156,7 +166,7 @@ resetPanels model =
       let
         re = Maybe.withDefault Regex.never (Regex.fromString "\\W+")
         panelId = Regex.replace re (\_ -> "_") manifest.id
-      in ManifestPanel.emptyModel |> ManifestPanel.id panelId |> ManifestPanel.manifest manifest
+      in ManifestPanel.emptyModel |> ManifestPanel.id panelId |> ManifestPanel.manifest manifest |> ManifestPanel.linkers model.manifestLinkers
   in
   { model | panelModels = List.map panelModel model.manifests }
 

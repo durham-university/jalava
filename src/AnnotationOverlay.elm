@@ -7,7 +7,7 @@ import Json.Encode as Encode
 import Json.Decode as Decode
 import Json.Decode.Pipeline exposing (required, optional, hardcoded, custom)
 import Iiif.Types exposing(..)
-import Iiif.Utils
+import Iiif.Utils exposing(Rect)
 import Iiif.Decoders
 
 import Html exposing (..)
