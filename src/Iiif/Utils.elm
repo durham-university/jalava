@@ -42,6 +42,16 @@ isStub obj =
     Loading -> True
     LoadingPage -> False
     Full -> False
+    Error _ -> True
+
+willLoad : { a | status : Status } -> Bool
+willLoad obj = 
+  case obj.status of
+    Stub -> True
+    Loading -> True
+    LoadingPage -> False
+    Full -> False
+    Error _ -> False
 
 manifestToString : Manifest -> String
 manifestToString = toString "Unnamed manifest"

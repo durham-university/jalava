@@ -14,6 +14,7 @@ import UI.Button as Button
 import UI.TitleLine as TitleLine
 import UI.Icon as Icon
 import UI.Colors as Colors
+import UI.Error exposing(err)
 import IiifUI.Spinner as Spinner
 import IiifUI.ManifestTitle as ManifestTitle
 import Iiif.Loading
@@ -29,7 +30,7 @@ import SharingTools
 import Iiif.Types exposing(..)
 import Iiif.Encoders
 import Iiif.Loading
-import Iiif.Utils exposing(getManifest, getCanvas, getRange, isStub, manifestToString, getCanvasAnnotationLists, getAnnotationLists, getCanvasAnnotation)
+import Iiif.Utils exposing(getManifest, getCanvas, getRange, isStub, willLoad, manifestToString, getCanvasAnnotationLists, getAnnotationLists, getCanvasAnnotation)
 import Iiif.ImageApi exposing(osdSource, OsdSource(..))
 
 port outPortOsdCmd : Encode.Value -> Cmd msg
@@ -233,7 +234,7 @@ update msg model =
       let
         maybeManifestUri = Maybe.map .id maybeManifest
         needsLoading = maybeManifest
-                        |> Maybe.map isStub
+                        |> Maybe.map willLoad
                         |> Maybe.withDefault False
         loadMsg = 
           if needsLoading then [LoadManifest (Maybe.withDefault "" (Maybe.map .id maybeManifest))]
@@ -349,14 +350,14 @@ titleView model =
   in
   case model.manifest of
     Just manifest ->
-      row 5 [fullWidth]
+      row 5 [fullWidth] <| 
         [ Button.light 
             |> Button.content (TitleLine.iconOnly "arrow-left") 
             |> Button.onPress CloseClicked 
             |> Button.attributes [style "width" <| cssPx 16] 
             |> Button.round 0
             |> Button.button
-        , column 0 [fullWidth, style "flex-shrink" "1"] 
+        , column 0 [fullWidth, style "flex-shrink" "1"] <|
             [ ManifestTitle.empty 
                 |> ManifestTitle.manifest manifest 
                 |> ManifestTitle.attributes [style "align-self" "center"] 
@@ -393,7 +394,9 @@ view model =
   column 0 [fullWidth, fullHeight]
     [ titleView model
     , row 0 [fullWidth, fullHeight, style "flex-shrink" "1"] 
-      [ el [fullWidth, fullHeight] (lazy osdElement model.osdElemId)
+      [ el [fullWidth, fullHeight] (case Maybe.map .status model.manifest of
+                                      Just (Error e) -> el [cssPadding "5px"] (err e)
+                                      _ -> lazy osdElement model.osdElemId)
       , menuElem
       , toolsElem
       , annotationElem

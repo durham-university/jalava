@@ -45,7 +45,7 @@ manifestTitle config =
         logoUrlMaybe = Maybe.map (ImageApi.resourceUrlSimple (ImageApi.FitH config.logoHeight)) manifest_.logo
         logo = Maybe.map (\justLogo -> img [Attributes.height config.logoHeight, Attributes.src justLogo, Attributes.alt "logo"] []) logoUrlMaybe
         title = manifest_.label |> Maybe.map ( p [fullWidth, Attributes.style "flex-shrink" "1"] << List.singleton << text) |> Maybe.withDefault none 
-        spinner = if Iiif.Utils.isStub manifest_ then Spinner.spinner
+        spinner = if Iiif.Utils.willLoad manifest_ then Spinner.spinner
                   else none
       in
         TitleLine.empty

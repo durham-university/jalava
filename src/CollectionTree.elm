@@ -11,7 +11,7 @@ import Html.Lazy as Lazy
 
 import Iiif.Types exposing(..)
 import Iiif.Loading
-import Iiif.Utils exposing(getCollection, getCollections, isStub)
+import Iiif.Utils exposing(getCollection, getCollections, willLoad)
 
 import UI.Core exposing(..)
 import UI.Tree as Tree
@@ -152,9 +152,10 @@ openCollection uri model =
   let 
     collection = getCollection model.iiif uri
     loadCollection = 
-      case isStub collection of 
-        True -> U.addOut [LoadCollection collection.id]
-        False -> identity
+      if willLoad collection then
+        U.addOut [LoadCollection collection.id]
+      else 
+        identity
   in
     (model, Cmd.none, [])
       |> U.mapModel (setCollectionUriOpen uri True)

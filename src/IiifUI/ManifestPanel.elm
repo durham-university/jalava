@@ -18,6 +18,7 @@ import UI.DefinitionList as DefinitionList
 import UI.Collapsible as Collapsible
 import UI.Colors as Colors
 import UI.Button as Button
+import UI.Error exposing(err)
 
 import IiifUI.CanvasButton as CanvasButton
 import IiifUI.IiifLink as IiifLink
@@ -30,7 +31,7 @@ import Update as U
 import Utils exposing(pluralise)
 
 import Iiif.Types exposing(..)
-import Iiif.Utils exposing(getManifest, isStub, contentState)
+import Iiif.Utils exposing(getManifest, willLoad, contentState)
 
 type alias Model =
   { manifest : Maybe Manifest
@@ -186,7 +187,7 @@ view_ model =
     Just manifest_ -> 
       let
 --        _ = Debug.log "Rendering" manifest_.id
-        lazyLoadAttrs = if isStub manifest_ then 
+        lazyLoadAttrs = if willLoad manifest_ then 
                             [ Attributes.class "lazyload manifest_lazyload"
                             , Attributes.attribute "data-manifest-uri" manifest_.id
                             ]
@@ -198,7 +199,9 @@ view_ model =
                 [ cssColor <| Colors.toCss Colors.link
                 , Attributes.style "cursor" "pointer"
                 , Events.onClick TitleClicked] (ManifestTitle.simple manifest_))
-        |> Panel.addSection (canvasLine model)
+        |> Panel.addSection ( case Maybe.map .status model.manifest of
+                                Just (Error e) -> err e
+                                _ -> canvasLine model )
         |> Panel.addDirectSection (model.collapsible |> Collapsible.view |> Html.map CollapsibleMsg)
         |> Panel.footer (footer model)
         |> Panel.panel 
@@ -218,7 +221,7 @@ canvasLine model =
             |> CanvasButton.onPress (CanvasClicked canvas.id)
             |> CanvasButton.canvasButton
       in
-        if isStub manifest_ then row 5 [Attributes.style "min-height" "60px"] [Spinner.spinnerThumbnail]
+        if willLoad manifest_ then row 5 [Attributes.style "min-height" "60px"] [Spinner.spinnerThumbnail]
         else row 5 [Attributes.style "overflow" "hidden", Attributes.style "min-height" "60px", fullWidth] (List.map canvasElement canvases)
 
 

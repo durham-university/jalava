@@ -34,7 +34,7 @@ type alias Iiif =
   , annotationLists : AnnotationListDict
   }
 
-type Status = Stub | Loading | LoadingPage | Full
+type Status = Stub | Loading | LoadingPage | Full | Error String
 
 type PageStatus = NoPages | IndexPage | MorePages | LastPage
 

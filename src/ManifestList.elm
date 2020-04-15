@@ -12,7 +12,7 @@ import Html.Events as Events
 import Html.Lazy as Lazy
 
 import Iiif.Types exposing(..)
-import Iiif.Utils exposing(getManifest, getManifests, getCollection, isStub, manifestToString)
+import Iiif.Utils exposing(getManifest, getManifests, getCollection, manifestToString)
 import Iiif.Loading
 import Iiif.ImageApi
 

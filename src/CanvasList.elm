@@ -5,6 +5,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 
 import UI.Core exposing(..)
+import UI.Error exposing(err)
 
 import Html exposing(..)
 import Html.Attributes as Attributes
@@ -20,7 +21,7 @@ import Utils exposing(pluralise, wrapKey, sanitiseId, ScrollInfo, ScrollAlignmen
 import Iiif.Types exposing(..)
 import Iiif.ImageApi
 import Iiif.Loading
-import Iiif.Utils exposing(getManifest, isStub)
+import Iiif.Utils exposing(getManifest, willLoad)
 import UriMapper exposing (UriMapper)
 
 type alias Model =
@@ -98,7 +99,7 @@ view_ model =
               |> CanvasButton.selected (Just canvas.id == model.selectedCanvas)
               |> CanvasButton.canvasButton
         in
-          if isStub manifest then row 10 [cssPadding <| cssPx 10, fullWidth, Attributes.style "overflow-x" "scroll"] [Spinner.spinnerThumbnail]
+          if willLoad manifest then row 10 [cssPadding <| cssPx 10, fullWidth, Attributes.style "overflow-x" "scroll"] [Spinner.spinnerThumbnail]
           else
             row 10 ([cssPadding <| cssPx 10, fullWidth, Attributes.style "overflow-x" "scroll"] ++ idAttribute) (List.map canvasButton canvases)
       Nothing -> row 10 ([cssPadding <| cssPx 10, fullWidth, Attributes.style "overflow-x" "scroll"] ++ idAttribute) []

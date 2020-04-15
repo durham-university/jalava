@@ -8,6 +8,7 @@ import UI.Fonts exposing(..)
 import UI.Collapsible as Collapsible
 import UI.Colors as Colors
 import UI.Button as Button
+import UI.Error exposing(err)
 
 import Html exposing(..)
 import Html.Attributes as Attributes
@@ -24,7 +25,7 @@ import Update as U
 import Utils exposing(pluralise, ScrollInfo, ScrollAlignment(..), ScrollAxis(..), ScrollTarget(..))
 
 import Iiif.Types exposing(..)
-import Iiif.Utils exposing(getManifest, getCollection, isStub, collectionToString)
+import Iiif.Utils exposing(getManifest, getCollection, willLoad, collectionToString)
 import Iiif.Loading
 import Iiif.ImageApi as ImageApi
 
@@ -169,7 +170,7 @@ loadCollection : Model -> (Model, Cmd Msg, List OutMsg )
 loadCollection model =
   case model.collection of
     Just collection ->
-      if isStub collection then (model, Cmd.none, [LoadCollection collection.id])
+      if willLoad collection then (model, Cmd.none, [LoadCollection collection.id])
       else (model, Cmd.none, [])
     _ -> (model, Cmd.none, [])
 
@@ -184,9 +185,15 @@ view_ model =
         logoElem = case collection.logo of
           Just logo -> Html.img [Attributes.height 60, Attributes.src (ImageApi.resourceUrlSimple (ImageApi.FitH 60) logo), Attributes.alt "logo"] []
           Nothing -> none
-        spinnerElem = case isStub collection of
-          True -> Spinner.spinner
-          False -> none
+        spinnerElem = if willLoad collection then
+                        Spinner.spinner
+                      else
+                        none
+
+        errorElem = case collection.status of
+                      Error e -> [err e]
+                      _ -> []
+
         (collapsibleMsg, toggleLabel) = Collapsible.toggleButtonInfo model.collapsible
         toggleButton = 
           Button.slimLink 
@@ -208,8 +215,9 @@ view_ model =
             el textBody (text <| pluralise (List.length collection.manifests) "manifest loaded (has more) -" "manifests loaded (has more) -")
       in
         column 0 [fullHeight, fullWidth] <|
-          [ row 5 (textBody ++ [fullWidth, Attributes.style "font-size" "24px"]) [logoElem, text <| collectionToString collection, spinnerElem]
-          , row 5 [fullWidth] [model.collapsible |> Collapsible.view |> Html.map CollapsibleMsg]
+          [ row 5 (textBody ++ [fullWidth, Attributes.style "font-size" "24px"]) [logoElem, text <| collectionToString collection, spinnerElem] ]
+          ++ errorElem ++
+          [ row 5 [fullWidth] [model.collapsible |> Collapsible.view |> Html.map CollapsibleMsg]
           , row 5 [fullWidth, cssColor <| Colors.toCss Colors.dimTextColor]
                   [ el [fullWidth, Attributes.style "flex-shrink" "1"] (toggleButton)
                   , countElement

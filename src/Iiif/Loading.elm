@@ -13,7 +13,7 @@ import Iiif.InternalUtils exposing(..)
 
 type Msg 
   = CollectionLoadedInt CollectionUri (Result Http.Error (CollectionUri, Iiif))
-  | CollectionPageLoadedInt CollectionUri (Result Http.Error (CollectionUri, Iiif))
+  | CollectionPageLoadedInt (CollectionUri, CollectionUri) (Result Http.Error (CollectionUri, Iiif))
   | ManifestLoadedInt ManifestUri (Result Http.Error (ManifestUri, Iiif))
   | AnnotationListLoadedInt AnnotationListUri (Result Http.Error (AnnotationListUri, Iiif))
 
@@ -58,20 +58,24 @@ update options msg model =
     ManifestLoadedInt manifestUri res -> 
       case res of
         Ok (uri, iiif) -> 
-         { model | iiif = manifestLoaded manifestUri iiif model.iiif }
-         |> (\m -> if uri == manifestUri then m else {m | iiif = aliasManifest (getManifest m.iiif uri) manifestUri m.iiif} )
-         |> (\m -> (m, Just (ManifestLoaded m.iiif manifestUri)))
-        Err e -> ({ model | errors = model.errors ++ ["Error loading manifest " ++ manifestUri ++ ". " ++ (httpErrorToString e)] }, Nothing)
+          { model | iiif = manifestLoaded manifestUri iiif model.iiif }
+          |> (\m -> if uri == manifestUri then m else {m | iiif = aliasManifest (getManifest m.iiif uri) manifestUri m.iiif} )
+          |> (\m -> (m, Just (ManifestLoaded m.iiif manifestUri)))
+        Err e -> 
+          { model | iiif = updateManifest manifestUri (\m -> { m | status = Error (httpErrorToString e) }) model.iiif }
+          |> (\m -> (m, Just (ManifestLoaded m.iiif manifestUri)))
     CollectionLoadedInt collectionUri res ->
       case res of
         Ok (uri, iiif) -> 
           { model | iiif = collectionLoaded collectionUri iiif model.iiif }
           |> (\m -> if uri == collectionUri then m else {m | iiif = aliasCollection (getCollection m.iiif uri) collectionUri m.iiif} )
           |> (\m -> (m, Just (CollectionLoaded m.iiif collectionUri)))
-        Err e -> ({ model | errors = model.errors ++ ["Error loading collection " ++ collectionUri ++ ". " ++ (httpErrorToString e)] }, Nothing)
-    CollectionPageLoadedInt pageUri res ->
+        Err e -> 
+          { model | iiif = updateCollection collectionUri (\m -> { m | status = Error (httpErrorToString e) }) model.iiif }
+          |> (\m -> (m, Just (CollectionLoaded m.iiif collectionUri)))
+    CollectionPageLoadedInt (collectionUri, pageUri) res ->
       case res of
-        Ok (collectionUri, iiif) -> 
+        Ok (_, iiif) -> 
           let
             maybeExisting = Dict.get collectionUri model.iiif.collections
           in
@@ -85,14 +89,19 @@ update options msg model =
               in
                 (newModel, Just (CollectionLoaded newModel.iiif collectionUri))
             Nothing -> (model, Nothing)
-        Err e -> ({ model | errors = model.errors ++ ["Error loading collection page " ++ pageUri ++ ". " ++ (httpErrorToString e)] }, Nothing)
+        Err e ->
+          { model | iiif = updateCollection collectionUri (\m -> { m | status = Error (httpErrorToString e) }) model.iiif }
+          |> (\m -> (m, Just (CollectionLoaded m.iiif collectionUri)))
     AnnotationListLoadedInt annotationListUri res ->
       case res of
         Ok (uri, iiif) -> 
           { model | iiif = annotationListLoaded annotationListUri iiif model.iiif }
           |> (\m -> if uri == annotationListUri then m else {m | iiif = aliasAnnotationList (getAnnotationList m.iiif uri) annotationListUri m.iiif} )
           |> (\m -> (m, Just (AnnotationListLoaded m.iiif annotationListUri)))
-        Err e -> ({ model | errors = model.errors ++ ["Error loading annotationList " ++ annotationListUri ++ ". " ++ (httpErrorToString e)] }, Nothing)
+        Err e -> 
+          { model | iiif = updateAnnotationList annotationListUri (\m -> { m | status = Error (httpErrorToString e) }) model.iiif }
+          |> (\m -> (m, Just (AnnotationListLoaded m.iiif annotationListUri)))
+          
 
 
 loadManifest : Options -> ManifestUri -> Iiif -> (Iiif, Cmd Msg)
@@ -112,7 +121,8 @@ loadManifest options uri iiif =
             in ( addManifest loading iiif, cmd )
           Loading -> ( iiif, Cmd.none )
           LoadingPage -> (iiif, Cmd.none )
-          Full -> ( iiif, Cmd.none )          
+          Full -> ( iiif, Cmd.none )
+          Error _ -> ( iiif, Cmd.none )
 
 
 loadCollection : Options -> CollectionUri -> Iiif -> (Iiif, Cmd Msg)
@@ -132,7 +142,8 @@ loadCollection options uri iiif =
             in ( addCollection loading iiif, cmd )
           Loading -> ( iiif, Cmd.none )
           LoadingPage -> (iiif, Cmd.none )
-          Full -> ( iiif, Cmd.none )          
+          Full -> ( iiif, Cmd.none )
+          Error _ -> (iiif, Cmd.none )
 
 loadCollectionNextPage : Options -> CollectionUri -> Iiif -> (Iiif, Cmd Msg)
 loadCollectionNextPage options uri iiif =
@@ -149,7 +160,8 @@ loadCollectionNextPage options uri iiif =
           Full ->
             case collectionNextPageUri existing of
               Nothing -> (iiif, Cmd.none)
-              Just nextUri -> (iiif, Http.send (CollectionPageLoadedInt nextUri) (Http.get (toRequestUri options nextUri) collectionDecoder))
+              Just nextUri -> (iiif, Http.send (CollectionPageLoadedInt (uri, nextUri)) (Http.get (toRequestUri options nextUri) collectionDecoder))
+          Error _ -> (iiif, Cmd.none )
 
 collectionNextPageUri : Collection -> Maybe CollectionUri
 collectionNextPageUri collection =
@@ -179,6 +191,7 @@ loadAnnotationList options uri iiif =
           Loading -> ( iiif, Cmd.none )
           LoadingPage -> ( iiif, Cmd.none )
           Full -> ( iiif, Cmd.none )
+          Error _ -> ( iiif, Cmd.none )
 
 
 manifestLoaded : ManifestUri -> Iiif -> Iiif -> Iiif

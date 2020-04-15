@@ -56,6 +56,19 @@ addAnnotationList : AnnotationList -> Iiif -> Iiif
 addAnnotationList annotationList iiif =
   { iiif | annotationLists = dictInsert annotationList iiif.annotationLists }  
 
+updateManifest : ManifestUri -> (Manifest -> Manifest) -> Iiif -> Iiif
+updateManifest uri f iiif =
+  { iiif | manifests = Dict.update uri (Maybe.map f) iiif.manifests }
+
+updateCollection : CollectionUri -> (Collection -> Collection) -> Iiif -> Iiif
+updateCollection uri f iiif =
+  { iiif | collections = Dict.update uri (Maybe.map f) iiif.collections }
+
+updateAnnotationList : AnnotationListUri -> (AnnotationList -> AnnotationList) -> Iiif -> Iiif
+updateAnnotationList uri f iiif =
+  { iiif | annotationLists = Dict.update uri (Maybe.map f) iiif.annotationLists }
+
+
 getObject : String -> (String -> Maybe String -> Maybe Resource -> b) -> Dict String b -> b
 getObject key default dict =
   let maybe = Dict.get key dict
