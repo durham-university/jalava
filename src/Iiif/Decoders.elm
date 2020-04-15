@@ -214,7 +214,7 @@ metadataDecoder =
     <| Decode.list (
       Decode.succeed t2
         |> required "label" (Decode.map (Maybe.withDefault "") jsonLdValueStringDecoder)
-        |> required "value" jsonLdValueStringListDecoder
+        |> required "value" (Decode.oneOf [jsonLdValueStringListDecoder, Decode.null []])
     )
 
 manifestLinkDecoder : Decode.Decoder (List ManifestLink)
