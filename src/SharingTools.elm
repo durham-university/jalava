@@ -122,7 +122,9 @@ view model =
               |> Maybe.andThen .service      
               |> Maybe.map (ImageApi.imageServiceUrl ImageApi.FullRegion ImageApi.FullSize ImageApi.NoRotation ImageApi.Default "jpg")
 
-    contentStateMaybe = model.manifest |> Maybe.andThen (\m -> contentState m canvasMaybe model.selection (Just model.label))
+    contentStateJsonMaybe = model.manifest |> Maybe.andThen (\m -> contentStateJson m canvasMaybe model.selection (Just model.label))
+
+    contentStateMaybe = Maybe.map urlBase64 contentStateJsonMaybe
 
     contentStateLinkMaybe = Maybe.map2 (\cs viewer -> viewer ++ "?iiif-content=" ++ cs) contentStateMaybe model.iiifViewerUrl
   in
@@ -191,7 +193,7 @@ view model =
 --            , el [] <| text xywhText
 --            ]
 --        Nothing -> text ""
-    , case contentStateMaybe of
+    , case contentStateJsonMaybe of
         Just cs -> 
           row 5 [fullWidth]
           [ Button.light

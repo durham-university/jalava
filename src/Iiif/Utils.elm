@@ -149,8 +149,12 @@ contentStateJson m canvasMaybe rectMaybe labelMaybe =
         "{\"id\":\"" ++ c.id ++ "\", \"type\":\"Canvas\", \"partOf\":{\"id\": \"" ++ m.id ++ "\",\"type\":\"Manifest\"}}"
       _ -> Just <| "{\"id\":\"" ++ m.id ++ "\", \"type\":\"Manifest\"}"
 
+urlBase64 : String -> String
+urlBase64 = 
+  Bytes.Encode.string >> Bytes.Encode.encode >> Base64.fromBytes >> 
+  Maybe.map (String.replace "+" "-" << String.replace "/" "_" << String.replace "=" "") >>
+  Maybe.withDefault ""
+
 contentState : Manifest -> Maybe Canvas -> Maybe Rect -> Maybe String -> Maybe String
 contentState m canvasMaybe rectMaybe labelMaybe =
-  contentStateJson m canvasMaybe rectMaybe labelMaybe
-  |> Maybe.andThen (\cs -> Bytes.Encode.string cs |> Bytes.Encode.encode |> Base64.fromBytes)
-  |> Maybe.map ((String.replace "+" "-") << (String.replace "/" "_") << (String.replace "=" ""))
+  Maybe.map urlBase64 <| contentStateJson m canvasMaybe rectMaybe labelMaybe
