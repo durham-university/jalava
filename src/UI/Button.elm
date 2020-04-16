@@ -17,6 +17,7 @@ type alias ButtonConfig msg =
   , attributes : List (Attribute msg)
   , onPress : Maybe msg
   , linkStyle : Bool
+  , title : Maybe String
   }
 
 emptyConfig : ButtonConfig msg
@@ -28,6 +29,7 @@ emptyConfig =
   , attributes = []
   , onPress = Nothing
   , linkStyle = False
+  , title = Nothing
   }
 
 button : ButtonConfig msg -> Html msg
@@ -44,6 +46,7 @@ button config =
         , Attributes.class ("bg" ++ config.baseColor)
         ]
     clickAttribute = Maybe.map (List.singleton << Events.onClick) config.onPress |> Maybe.withDefault []
+    titleAttribute = Maybe.map (List.singleton << Attributes.title) config.title |> Maybe.withDefault []
   in
   UI.Core.button
     (textBody ++ colourStyle ++ 
@@ -53,8 +56,11 @@ button config =
       , Attributes.style "justify-content" "center"
       , Attributes.style "align-items" "center"
       ] 
-    ++ clickAttribute ++ config.attributes)
+    ++ clickAttribute ++ titleAttribute ++ config.attributes)
     config.content
+
+title : String -> ButtonConfig msg -> ButtonConfig msg
+title s config = {config | title = Just s}
 
 attributes : List (Attribute msg) -> ButtonConfig msg -> ButtonConfig msg
 attributes attrs config = {config | attributes = config.attributes ++ attrs}

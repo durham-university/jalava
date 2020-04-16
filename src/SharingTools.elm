@@ -127,6 +127,17 @@ view model =
     contentStateMaybe = Maybe.map urlBase64 contentStateJsonMaybe
 
     contentStateLinkMaybe = Maybe.map2 (\cs viewer -> viewer ++ "?iiif-content=" ++ cs) contentStateMaybe model.iiifViewerUrl
+
+    htmlEmbed = case (croppedUrlMaybe, fullImageUrlMaybe, contentStateLinkMaybe) of
+                  (Just imgUrl, _, Just csUrl) -> Just <| "<a href=\"" ++ csUrl ++"\" target=\"_blank\"><img src=\"" ++ imgUrl ++ "\" /></a>"
+                  (_, Just imgUrl, Just csUrl) -> Just <| "<a href=\"" ++ csUrl ++"\" target=\"_blank\"><img src=\"" ++ imgUrl ++ "\" /></a>"
+                  _ -> Nothing
+
+    mdEmbed = case (croppedUrlMaybe, fullImageUrlMaybe, contentStateLinkMaybe) of
+                  (Just imgUrl, _, Just csUrl) -> Just <| "[![](" ++ imgUrl ++ ")](" ++ csUrl ++ ")"
+                  (_, Just imgUrl, Just csUrl) -> Just <| "[![](" ++ imgUrl ++ ")](" ++ csUrl ++ ")"
+                  _ -> Nothing
+
   in
   column 10 
     [ fullWidth
@@ -136,12 +147,18 @@ view model =
     ]
     [ case contentStateLinkMaybe of
       Just url -> 
+          let
+            linkLabel = case model.selection of 
+                          Nothing -> "Link to canvas"
+                          Just _ -> "Link to selection"
+          in
           row 5 [fullWidth] 
           [ Button.light
                 |> Button.content (TitleLine.iconOnly "copy")
+                |> Button.title "Copy link to clipboard"
                 |> Button.onPress (CopyToClipboardInt url)
                 |> Button.button
-          , Html.a [Attributes.href url, Attributes.target "_blank"] [row 5 [fullWidth] [iiifIcon, el [] <| text "Content state link"]]
+          , Html.a [Attributes.href url, Attributes.target "_blank"] [row 5 [fullWidth] [iiifIcon, el [] <| text linkLabel]]
           ]
       Nothing -> text ""
     , case model.manifest of
@@ -149,9 +166,10 @@ view model =
           row 5 [fullWidth] 
           [ Button.light
                 |> Button.content (TitleLine.iconOnly "copy")
+                |> Button.title "Copy link to clipboard"
                 |> Button.onPress (CopyToClipboardInt m.id)
                 |> Button.button
-          , Html.a [Attributes.href m.id, Attributes.target "_blank"] [row 5 [fullWidth] [iiifIcon, el [] <| text "Manifest link"]]
+          , Html.a [Attributes.href m.id, Attributes.target "_blank"] [row 5 [fullWidth] [iiifIcon, el [] <| text "Manifest file"]]
           ]
       Nothing -> text ""
     , case (croppedUrlMaybe, fullImageUrlMaybe) of
@@ -159,6 +177,7 @@ view model =
           row 5 [fullWidth]
             [ Button.light
                   |> Button.content (TitleLine.iconOnly "copy")
+                  |> Button.title "Copy link to clipboard"
                   |> Button.onPress (CopyToClipboardInt url)
                   |> Button.button
             , Html.a [Attributes.href url, Attributes.target "_blank"] [ row 5 [fullWidth] [TitleLine.iconOnly "image", el [] <| text "Cropped image"]]
@@ -167,6 +186,7 @@ view model =
           row 5 [fullWidth]
             [ Button.light
                   |> Button.content (TitleLine.iconOnly "copy")
+                  |> Button.title "Copy link to clipboard"
                   |> Button.onPress (CopyToClipboardInt url)
                   |> Button.button
             , Html.a [Attributes.href url, Attributes.target "_blank"] [ row 5 [fullWidth] [TitleLine.iconOnly "image", el [] <| text "Full image"]]
@@ -183,25 +203,44 @@ view model =
     , case model.selection of
         Nothing -> el [] <| text "Select a canvas region on the left to target a specific region"
         _ -> row 5 [] [ el [] <| text "Selection label:", Html.input [Events.onInput SetLabel, Attributes.value model.label] [] ]
---    , case xywhTextMaybe of
---        Just xywhText ->
---          row 5 [fullWidth]
---            [ Button.light
---                      |> Button.content (TitleLine.iconOnly "copy")
---                      |> Button.onPress (CopyToClipboardInt xywhText)
---                      |> Button.button
---            , el [] <| text xywhText
---            ]
---        Nothing -> text ""
+    , case htmlEmbed of
+        Just e ->
+          row 5 [fullWidth]
+          [ Button.light
+                |> Button.content (TitleLine.iconOnly "copy")
+                |> Button.title "Copy embed code clipboard"
+                |> Button.onPress (CopyToClipboardInt e)
+                |> Button.button
+          , column 5 [fullWidth] 
+              [ el [] <| text "HTML Embed code:"
+              , Html.textarea [ Attributes.style "overflow" "auto", Attributes.rows 3, fullWidth] [text <| e]
+              ]
+          ]
+        Nothing -> text ""
+    , case mdEmbed of
+        Just e ->
+          row 5 [fullWidth]
+          [ Button.light
+                |> Button.content (TitleLine.iconOnly "copy")
+                |> Button.title "Copy embed code clipboard"
+                |> Button.onPress (CopyToClipboardInt e)
+                |> Button.button
+          , column 5 [fullWidth] 
+              [ el [] <| text "Markdown Embed code:"
+              , Html.textarea [ Attributes.style "overflow" "auto", Attributes.rows 3, fullWidth] [text <| e]
+              ]
+          ]
+        Nothing -> text ""
     , case contentStateJsonMaybe of
         Just cs -> 
           row 5 [fullWidth]
           [ Button.light
                 |> Button.content (TitleLine.iconOnly "copy")
+                |> Button.title "Copy content state to clipboard"
                 |> Button.onPress (CopyToClipboardInt cs)
                 |> Button.button
           , column 5 [fullWidth] 
-              [ el [] <| text "Content State (json):"
+              [ el [] <| text "IIIF Content State (json):"
               , Html.textarea [Attributes.style "overflow" "auto", Attributes.rows 3, fullWidth] [text <| cs]
               ]
           ]
@@ -211,10 +250,11 @@ view model =
           row 5 [fullWidth]
           [ Button.light
                 |> Button.content (TitleLine.iconOnly "copy")
+                |> Button.title "Copy content state to clipboard"
                 |> Button.onPress (CopyToClipboardInt cs)
                 |> Button.button
           , column 5 [fullWidth] 
-              [ el [] <| text "Content State (base64url):"
+              [ el [] <| text "IIIF Content State (base64url):"
               , Html.textarea [ Attributes.style "overflow" "auto", Attributes.rows 3, fullWidth] [text <| cs]
               ]
           ]

@@ -332,14 +332,16 @@ titleView : Model -> Html Msg
 titleView model =
   let
     toolsButton = Button.light
-                  |> Button.content (TitleLine.iconOnly "share-square")
+                  |> Button.content (TitleLine.iconOnly "share-alt")
                   |> Button.onPress (SetSharingToolsOpen (not model.sharingToolsOpen)) 
+                  |> Button.title "Sharing"
                   |> Button.attributes [style "width" <| cssPx 16]
                   |> Button.round 0
                   |> Button.button
     infoButton =  Button.light 
                   |> Button.content (TitleLine.iconOnly "info") 
                   |> Button.onPress (SetMenuOpen (not model.menuModel.open)) 
+                  |> Button.title "Manifest information"
                   |> Button.attributes [style "width" <| cssPx 16] 
                   |> Button.round 0
                   |> Button.button 
@@ -354,6 +356,7 @@ titleView model =
         [ Button.light 
             |> Button.content (TitleLine.iconOnly "arrow-left") 
             |> Button.onPress CloseClicked 
+            |> Button.title "Back"
             |> Button.attributes [style "width" <| cssPx 16] 
             |> Button.round 0
             |> Button.button
