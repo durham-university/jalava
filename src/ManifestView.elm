@@ -72,7 +72,7 @@ type OutMsg = LoadManifest ManifestUri
             | CloseViewer
             | RequestIiif (Iiif -> Msg)
             | ScrollToView ScrollInfo
-            | CopyToClipboard String
+            | CopyToClipboard (List (String, String))
 
 
 canvasList =
@@ -117,7 +117,7 @@ sharingTools =
     , wrapMsg = SharingToolsMsg
     , outEvaluator = \msgSub model ->
         case msgSub of
-          SharingTools.CopyToClipboard s -> (model, Cmd.none, [CopyToClipboard s])
+          SharingTools.CopyToClipboard d -> (model, Cmd.none, [CopyToClipboard d])
     }
 
 openCanvasInOsd : Model -> (Model, Cmd Msg, List OutMsg)

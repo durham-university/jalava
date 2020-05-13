@@ -14,7 +14,6 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "devDependencies": {
-    "clipboard-copy": "^3.1.0",
     "copy-webpack-plugin": "^5.1.1",
     "css-loader": "^1.0.1",
     "elm": "^0.19.1-3",

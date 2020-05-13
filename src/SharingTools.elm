@@ -25,9 +25,9 @@ type Msg  = SetSelectionEnabled Bool
           | SetCanvas (Maybe (Manifest, CanvasUri))
           | ClearSelection
           | SetLabel String
-          | CopyToClipboardInt String
+          | CopyToClipboardInt (List (String, String))
 
-type OutMsg = CopyToClipboard String
+type OutMsg = CopyToClipboard (List (String, String))
 
 port outPortSelectionCmd : Encode.Value -> Cmd msg
 
@@ -98,7 +98,7 @@ update msg model =
           |> U.chainIf (model.canvas /= Just ca) (update ClearSelection)
         Nothing -> ({model | manifest = Nothing, canvas = Nothing, selection = Nothing}, Cmd.none, [])
     SetLabel s -> ({model | label = s}, Cmd.none, [])
-    CopyToClipboardInt s -> (model, Cmd.none, [CopyToClipboard s])
+    CopyToClipboardInt d -> (model, Cmd.none, [CopyToClipboard d])
 
 view : Model -> Html Msg
 view model = 
@@ -156,7 +156,7 @@ view model =
           [ Button.light
                 |> Button.content (TitleLine.iconOnly "copy")
                 |> Button.title "Copy link to clipboard"
-                |> Button.onPress (CopyToClipboardInt url)
+                |> Button.onPress (CopyToClipboardInt [("text/plain", url)])
                 |> Button.button
           , Html.a [Attributes.href url, Attributes.target "_blank"] [row 5 [fullWidth] [iiifIcon, el [] <| text linkLabel]]
           ]
@@ -167,7 +167,7 @@ view model =
           [ Button.light
                 |> Button.content (TitleLine.iconOnly "copy")
                 |> Button.title "Copy link to clipboard"
-                |> Button.onPress (CopyToClipboardInt m.id)
+                |> Button.onPress (CopyToClipboardInt [("text/plain", m.id)])
                 |> Button.button
           , Html.a [Attributes.href m.id, Attributes.target "_blank"] [row 5 [fullWidth] [iiifIcon, el [] <| text "Manifest file"]]
           ]
@@ -178,7 +178,7 @@ view model =
             [ Button.light
                   |> Button.content (TitleLine.iconOnly "copy")
                   |> Button.title "Copy link to clipboard"
-                  |> Button.onPress (CopyToClipboardInt url)
+                  |> Button.onPress (CopyToClipboardInt [("text/plain", url)])
                   |> Button.button
             , Html.a [Attributes.href url, Attributes.target "_blank"] [ row 5 [fullWidth] [TitleLine.iconOnly "image", el [] <| text "Cropped image"]]
             ]
@@ -187,7 +187,7 @@ view model =
             [ Button.light
                   |> Button.content (TitleLine.iconOnly "copy")
                   |> Button.title "Copy link to clipboard"
-                  |> Button.onPress (CopyToClipboardInt url)
+                  |> Button.onPress (CopyToClipboardInt [("text/plain", url)])
                   |> Button.button
             , Html.a [Attributes.href url, Attributes.target "_blank"] [ row 5 [fullWidth] [TitleLine.iconOnly "image", el [] <| text "Full image"]]
             ]
@@ -209,7 +209,7 @@ view model =
           [ Button.light
                 |> Button.content (TitleLine.iconOnly "copy")
                 |> Button.title "Copy embed code clipboard"
-                |> Button.onPress (CopyToClipboardInt e)
+                |> Button.onPress (CopyToClipboardInt [("text/html", e), ("text/plain", e)])
                 |> Button.button
           , column 5 [fullWidth] 
               [ el [] <| text "HTML Embed code:"
@@ -223,7 +223,7 @@ view model =
           [ Button.light
                 |> Button.content (TitleLine.iconOnly "copy")
                 |> Button.title "Copy embed code clipboard"
-                |> Button.onPress (CopyToClipboardInt e)
+                |> Button.onPress (CopyToClipboardInt [("text/markdown", e), ("text/x-markdown", e), ("text/plain", e)])
                 |> Button.button
           , column 5 [fullWidth] 
               [ el [] <| text "Markdown Embed code:"
@@ -237,7 +237,7 @@ view model =
           [ Button.light
                 |> Button.content (TitleLine.iconOnly "copy")
                 |> Button.title "Copy content state to clipboard"
-                |> Button.onPress (CopyToClipboardInt cs)
+                |> Button.onPress (CopyToClipboardInt [("text/plain", cs)])
                 |> Button.button
           , column 5 [fullWidth] 
               [ el [] <| text "IIIF Content State (json):"
@@ -251,7 +251,7 @@ view model =
           [ Button.light
                 |> Button.content (TitleLine.iconOnly "copy")
                 |> Button.title "Copy content state to clipboard"
-                |> Button.onPress (CopyToClipboardInt cs)
+                |> Button.onPress (CopyToClipboardInt [("text/plain", cs)])
                 |> Button.button
           , column 5 [fullWidth] 
               [ el [] <| text "IIIF Content State (base64url):"

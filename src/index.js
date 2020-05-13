@@ -2,8 +2,6 @@
 
 import 'lazysizes';
 
-const copyToClipboard = require('clipboard-copy');
-
 window.OpenSeadragon = require('openseadragon');
 require('./index.html');
 require('./main.scss');
@@ -158,7 +156,16 @@ window.mountJalava = function(mountNode, config) {
   });
 
   app.ports.outPortCopyToClipboard.subscribe(function (data) {
-    copyToClipboard(data);
+    function listener(e) { 
+      e.clipboardData.clearData();
+      data.forEach(function(d) {
+        e.clipboardData.setData(d[0], d[1]);
+      });
+      e.preventDefault();
+    }
+    document.addEventListener("copy", listener);
+    document.execCommand("copy");
+    document.removeEventListener("copy", listener);   
   });
 
   document.addEventListener('lazybeforeunveil', function (e) {

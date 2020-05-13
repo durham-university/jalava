@@ -37,7 +37,7 @@ port inPortShowAnnotation : (Maybe AnnotationUri -> msg) -> Sub msg
 
 port outPortScrollToView : Encode.Value -> Cmd msg
 
-port outPortCopyToClipboard : String -> Cmd msg
+port outPortCopyToClipboard : List (String, String) -> Cmd msg
 
 port inPortSetSelection : (Decode.Value -> msg) -> Sub msg
 
@@ -82,7 +82,7 @@ type OutMsg
   | CloseViewer
   | RequestIiif (Iiif -> Msg)
   | ScrollToView ScrollInfo
-  | CopyToClipboard String
+  | CopyToClipboard (List (String, String))
 
 
 collectionTree =
@@ -133,7 +133,7 @@ manifestView =
           ManifestView.CloseViewer -> (model, Cmd.none, [CloseViewer])
           ManifestView.RequestIiif iiifMsg -> (model, Cmd.none, [RequestIiif (ManifestViewMsg << iiifMsg)])
           ManifestView.ScrollToView scrollInfo -> (model, Cmd.none, [ScrollToView scrollInfo])
-          ManifestView.CopyToClipboard s -> (model, Cmd.none, [CopyToClipboard s])
+          ManifestView.CopyToClipboard d -> (model, Cmd.none, [CopyToClipboard d])
     }
 
 
@@ -311,7 +311,7 @@ outMsgEvaluator msg model =
             , ("alignment", Encode.string alignment)
             ])
         in (model, scrollCmd)
-    CopyToClipboard s -> (model, outPortCopyToClipboard s)
+    CopyToClipboard d -> (model, outPortCopyToClipboard d)
 
 
 
