@@ -140,7 +140,7 @@ view model =
     el ( [ Attributes.style "overflow-y" "hidden"
          , Attributes.style "transition" ("height " ++ (String.fromFloat model.config.collapseTime) ++ "ms")
          ] ++ heightAttribute ++ model.config.attributes )
-        <| el [idAttribute, Attributes.style "flex-shrink" "0", fullWidth, fullHeight] model.config.content
+        <| el [idAttribute, Attributes.style "flex-shrink" "0", Attributes.style "max-height" "unset", fullWidth, fullHeight] model.config.content
 
 toggleButtonInfo : Model -> (Msg, Html Msg)
 toggleButtonInfo model =
