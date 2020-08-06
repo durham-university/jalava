@@ -55,6 +55,9 @@ type alias ManifestLink =
 
 type alias ManifestLinker = Manifest -> Maybe ManifestLink
 
+type ManifestLinkMethod = ReplaceContentState String
+                        | ReplaceManifestUri String
+                        | NoLink
 
 component : U.Component Model Msg OutMsg
 component = { init = init, emptyModel = emptyModel, update = update, view = view, subscriptions = subscriptions }
@@ -68,23 +71,28 @@ collapsible =
     , outEvaluator = \msgSub model -> (model, Cmd.none, [])
     }
 
-makeManifestLinker : Maybe String -> Maybe String -> Maybe String -> Maybe String -> ManifestLinker
-makeManifestLinker maybeLabel maybeIcon maybeMatchManifest maybeReplaceContentState =
+makeManifestLinker : Maybe String -> Maybe String -> Maybe String -> ManifestLinkMethod -> ManifestLinker
+makeManifestLinker maybeLabel maybeIcon maybeMatchManifest manifestLinkMethod =
   let
     maybeManifestRegex = Maybe.andThen Regex.fromString maybeMatchManifest
 
     replacer : ManifestLinker
     replacer m =
-      case maybeReplaceContentState of
-        Nothing -> Nothing
-        Just replaceContentState -> 
-          case (contentState m Nothing Nothing Nothing) of
+      case manifestLinkMethod of
+        NoLink -> Nothing
+        ReplaceContentState replaceContentState -> 
+          case contentState m Nothing Nothing Nothing of
             Nothing -> Nothing
             Just contentState_ -> 
               Just  { url = String.replace "__contentstate__" contentState_ replaceContentState
                     , label = maybeLabel
                     , icon = maybeIcon
                     }
+        ReplaceManifestUri replaceManifestUri ->
+          Just  { url = String.replace "__manifesturi__" m.id replaceManifestUri
+                , label = maybeLabel
+                , icon = maybeIcon
+                }
     
     matcher : ManifestLinker -> ManifestLinker
     matcher linker m = 
@@ -105,7 +113,11 @@ manifestLinkerDecoder =
   |> DecodeP.optional "label" (Decode.nullable Decode.string) Nothing
   |> DecodeP.optional "icon" (Decode.nullable Decode.string) Nothing
   |> DecodeP.optional "matchManifest" (Decode.nullable Decode.string) Nothing
-  |> DecodeP.optional "replaceContentState" (Decode.nullable Decode.string) Nothing
+  |> DecodeP.custom (Decode.oneOf
+      [ Decode.succeed ReplaceContentState |> DecodeP.required "replaceContentState" Decode.string
+      , Decode.succeed ReplaceManifestUri |> DecodeP.required "replaceManifestUri" Decode.string
+      , Decode.succeed NoLink
+      ])
 
 manifestLinkersDecoder : Decode.Decoder (List ManifestLinker)
 manifestLinkersDecoder = Decode.list manifestLinkerDecoder
