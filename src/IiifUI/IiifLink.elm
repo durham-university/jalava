@@ -8,7 +8,7 @@ import Html.Events as Events
 import Iiif.Types
 
 iiifIcon : Html msg
-iiifIcon = img [Attributes.height 18, Attributes.width 21, Attributes.src "logo-iiif-small.png", Attributes.alt "IIIF"] []
+iiifIcon = div [Attributes.style "height" "18px", Attributes.style "width" "21px", Attributes.class "iiif_logo"] []
 
 iiifLink : Iiif.Types.Uri -> Html msg
 iiifLink uri =

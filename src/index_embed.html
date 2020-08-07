@@ -2,7 +2,7 @@
 <html>
 
 <head>
-  <title>Jalava</title>
+  <title>Jalava embed</title>
   <script src="ie_polyfill.js"></script>
 
   <meta charset="utf-8">
@@ -10,39 +10,32 @@
   <script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
 <!--  <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script> -->
   <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.11.2/css/all.css" integrity="sha384-KA6wR/X5RY4zFAHpv/CnoG2UW1uogYfdnP67Uv7eULvTveboZJg0qUpmJZb5VqzN" crossorigin="anonymous">
-  <style>
-    body {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      margin: 0;
-      padding: 0;
-    }
-  </style>
   <link rel="stylesheet" href="jalava.css"></style>
 </head>
 
 <body>
+  <h1>Jalava embed demo</h1>
+  <p>
+    Jalava mounted below in a centered div.
+  </p>
+  <div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+    <div style="position: relative; width: 80%; height: 600px;">
+      <div id="jalava-embed"></div>
+    </div>
+  </div>
   <script src="jalava.js"></script>
   <script>
-    jalavaApp(
+    jalavaEmbed(
+      document.getElementById("jalava-embed"),
       {
         iiifViewer: "https://iiif.durham.ac.uk/index.html",
-//        sharingTools: false,        
         rootUrl: "https://ryanfb.github.io/iiif-universe/iiif-universe.json"
-/*        manifestLinks: [
-          {
-            label: 'Open in Mirador',
-            icon: 'mirador-logo.png',
-            matchManifest: "^(.*)$",
-            replaceContentState: "https://iiif.durham.ac.uk/index.html?iiif-content=__contentstate__"
-          }
-        ]*/
       }
     );
   </script>
+  <p>
+    More text here.
+  </p>
 </body>
 
 </html>

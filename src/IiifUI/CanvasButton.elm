@@ -69,7 +69,7 @@ canvasButtonOnly config =
       let
         width_ = round ((toFloat canvas_.width) / (toFloat canvas_.height) * 60.0)
         thumbSrc = Iiif.ImageApi.canvasThumbnailUrl (Iiif.ImageApi.FitH 60) canvas_
-        canvasThumb = lazyloadImage [Attributes.height 60] {src = thumbSrc, spinnerSrc = "spinner_40x60.gif", description = Maybe.withDefault "" canvas_.label}
+        canvasThumb = lazyloadImage [Attributes.height 60] {src = thumbSrc, description = Maybe.withDefault "" canvas_.label}
         selectedAttribute = if config.selected  then [Attributes.style "box-shadow" (String.join " " ["0","0",cssPx 3, cssPx 2, (Colors.primary |> C.scaleAlpha 0.7 |> Colors.toCss)]) ]
                                             else []
         clickAttribute = Maybe.map (List.singleton << Events.onClick) config.onPress |> Maybe.withDefault []

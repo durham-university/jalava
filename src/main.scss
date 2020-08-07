@@ -34,16 +34,6 @@ $color-dark: rgba(77,77,77,1);
     }
 }
 
-.bgPrimary { @include bgColor($color-primary); }
-.bgSecondary { @include bgColor($color-secondary); }
-.bgSuccess { @include bgColor($color-success); }
-.bgWarning { @include bgColor($color-warning); }
-.bgError { @include bgColor($color-error); }
-.bgLight { @include bgColor($color-light); }
-.bgDark { @include bgColor($color-dark); }
-.bgLink { @include bgColor($color-link); }
-.bgWhite { @include bgColor( rgba(255, 255, 255, 1.0)); }
-
 @mixin textColor($baseColor){
   color: $baseColor;
   &.textDarken { color : darken($baseColor, 30); }
@@ -55,202 +45,240 @@ $color-dark: rgba(77,77,77,1);
   }
 }
 
-.textPrimary { @include textColor($color-primary); }
-.textSecondary { @include textColor($color-secondary); }
-.textSuccess { @include textColor($color-success); }
-.textWarning { @include textColor($color-warning); }
-.textError { @include textColor($color-error); }
-.textLink { @include textColor($color-link); }
-.textDefault { @include textColor($color-defaultText); }
-.textDim { @include textColor($color-dimText); }
-
 @mixin borderColor($baseColor){
   border-color: $baseColor;
   &.borderDarken { color : darken($baseColor, 50); }
 }
 
-.borderPrimary { @include borderColor($color-primary); }
-.borderSecondary { @include borderColor($color-secondary); }
-.borderSuccess { @include borderColor($color-success); }
-.borderWarning { @include borderColor($color-warning); }
-.borderError { @include borderColor($color-error); }
-.borderLight { @include borderColor($color-light); }
-.borderDark { @include borderColor($color-dark); }
+.jalava-root {
 
+  .bgPrimary { @include bgColor($color-primary); }
+  .bgSecondary { @include bgColor($color-secondary); }
+  .bgSuccess { @include bgColor($color-success); }
+  .bgWarning { @include bgColor($color-warning); }
+  .bgError { @include bgColor($color-error); }
+  .bgLight { @include bgColor($color-light); }
+  .bgDark { @include bgColor($color-dark); }
+  .bgLink { @include bgColor($color-link); }
+  .bgWhite { @include bgColor( rgba(255, 255, 255, 1.0)); }
 
-// RESET
+  .textPrimary { @include textColor($color-primary); }
+  .textSecondary { @include textColor($color-secondary); }
+  .textSuccess { @include textColor($color-success); }
+  .textWarning { @include textColor($color-warning); }
+  .textError { @include textColor($color-error); }
+  .textLink { @include textColor($color-link); }
+  .textDefault { @include textColor($color-defaultText); }
+  .textDim { @include textColor($color-dimText); }
 
-* {
-	padding: 0;
-	margin: 0;
-}
+  .borderPrimary { @include borderColor($color-primary); }
+  .borderSecondary { @include borderColor($color-secondary); }
+  .borderSuccess { @include borderColor($color-success); }
+  .borderWarning { @include borderColor($color-warning); }
+  .borderError { @include borderColor($color-error); }
+  .borderLight { @include borderColor($color-light); }
+  .borderDark { @include borderColor($color-dark); }
 
-a { 
-  color: $color-link; 
-  &:hover { color: darken($color-link, 20);}
-
-  img { border: none; }
-}
-
-// Some basics for formattedContent
-
-.formattedContent {
-  p {
-    margin-block-start: 1rem;
-    margin-block-end: 1rem;
-  }
-}
-
-// BODY
-
-body {
-  height: 100%;
-  width: 100%;
-  position: absolute;
   color: $color-defaultText;
-}
 
-// CORE
+  padding: 0;
+  margin: 0;
 
-.hide { display: none !important; }
-
-.fullWidth {
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.fullHeight {
-  height: 100%;
-  box-sizing: border-box;
-}
-
-
-@mixin rowSpacing($amount) {
-  &>* { margin-left: $amount; }
-  &>*:first-child { margin-left: 0; }
-  &.wrap {
-    &>* { margin-left: 0; margin-right: $amount; margin-bottom: $amount; }
-    &>*:last-child { margin-left: 0; margin-right: 0; }  
-  }
-}
-
-@mixin columnSpacing($amount) {
-  &>* { margin-top: $amount; }
-  &>*:first-child { margin-top: 0; }
-  &.wrap {
-    &>* { margin-top: 0; margin-bottom: $amount; margin-right: $amount; }
-    &>*:last-child { margin-top: 0; margin-bottom: 0; }  
-  }
-}
-
-.row {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-
-  &.spacing1 { @include rowSpacing(1px); }
-  &.spacing5 { @include rowSpacing(5px); }
-  &.spacing10 { @include rowSpacing(10px); }
-  &.spacing15 { @include rowSpacing(15px); }
-  &.spacing20 { @include rowSpacing(20px); }
-  &.spacing25 { @include rowSpacing(25px); }
-  &.spacing30 { @include rowSpacing(30px); }
-
-  & > .fullWidth {
-    flex-grow: 1;
-    width: unset;
-  }
-
-  & > .fullHeight {
-    align-self: stretch;
-    height: unset;
-  }
-}
-
-.column {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-
-  &.spacing1 { @include columnSpacing(1px); }
-  &.spacing5 { @include columnSpacing(5px); }
-  &.spacing10 { @include columnSpacing(10px); }
-  &.spacing15 { @include columnSpacing(15px); }
-  &.spacing20 { @include columnSpacing(20px); }
-  &.spacing25 { @include columnSpacing(25px); }
-  &.spacing30 { @include columnSpacing(30px); }
-
-  & > .fullWidth {
-    align-self: stretch;
-    width: unset;
-  }
-
-  & > .fullHeight {
-    flex-grow: 1;
-    height: unset;
-  }
-}
-
-.row, .column {
-
-  &.wrap {
-    flex-wrap: wrap
-  }
-
-  & > * {
-    flex-shrink: 0;
-    position: relative;
-  }
-}
-
-.el {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-
-  & > .fullWidth {
-    align-self: stretch;
-    width: unset;
-    max-width: 100%;
-  }
-
-  & > .fullHeight {
-    flex-grow: 1;
-    height: unset;
-    max-height: 100%;
-  }
-}
-
-.screen {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
-}
+  bottom: 0;
+  right: 0;
 
-.grid {
-  display: grid;
-}
+  // RESET
 
-// This is for old IE compatibility without grid support
-.grid > div > div.el > * { max-width: 100%; }
-
-.selectionHandle {
-  opacity: 0.2;
-  cursor: move;
-  &:hover {
-    opacity: 0.5;
+  *, & {
+    padding: 0;
+    margin: 0;
   }
-}
 
-input, textarea {
-  padding: 5px;
-  border-radius: 5px;
-  border: 1px solid $color-dark;
-  &:focus {
-    box-shadow: 0 0 0 0.2rem transparentize($color-primary,0.7);
+  a { 
+    color: $color-link; 
+    &:hover { color: darken($color-link, 20);}
+
+    img { border: none; }
+  }
+
+  // Some basics for formattedContent
+
+  .formattedContent {
+    p {
+      margin-block-start: 1rem;
+      margin-block-end: 1rem;
+    }
+  }
+
+  // CORE
+
+  .hide { display: none !important; }
+
+  .fullWidth {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .fullHeight {
+    height: 100%;
+    box-sizing: border-box;
+  }
+
+
+  @mixin rowSpacing($amount) {
+    &>* { margin-left: $amount; }
+    &>*:first-child { margin-left: 0; }
+    &.wrap {
+      &>* { margin-left: 0; margin-right: $amount; margin-bottom: $amount; }
+      &>*:last-child { margin-left: 0; margin-right: 0; }  
+    }
+  }
+
+  @mixin columnSpacing($amount) {
+    &>* { margin-top: $amount; }
+    &>*:first-child { margin-top: 0; }
+    &.wrap {
+      &>* { margin-top: 0; margin-bottom: $amount; margin-right: $amount; }
+      &>*:last-child { margin-top: 0; margin-bottom: 0; }  
+    }
+  }
+
+  .row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: nowrap;
+
+    &.spacing1 { @include rowSpacing(1px); }
+    &.spacing5 { @include rowSpacing(5px); }
+    &.spacing10 { @include rowSpacing(10px); }
+    &.spacing15 { @include rowSpacing(15px); }
+    &.spacing20 { @include rowSpacing(20px); }
+    &.spacing25 { @include rowSpacing(25px); }
+    &.spacing30 { @include rowSpacing(30px); }
+
+    & > .fullWidth {
+      flex-grow: 1;
+      width: unset;
+    }
+
+    & > .fullHeight {
+      align-self: stretch;
+      height: unset;
+    }
+  }
+
+  .column {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+
+    &.spacing1 { @include columnSpacing(1px); }
+    &.spacing5 { @include columnSpacing(5px); }
+    &.spacing10 { @include columnSpacing(10px); }
+    &.spacing15 { @include columnSpacing(15px); }
+    &.spacing20 { @include columnSpacing(20px); }
+    &.spacing25 { @include columnSpacing(25px); }
+    &.spacing30 { @include columnSpacing(30px); }
+
+    & > .fullWidth {
+      align-self: stretch;
+      width: unset;
+    }
+
+    & > .fullHeight {
+      flex-grow: 1;
+      height: unset;
+    }
+  }
+
+  .row, .column {
+
+    &.wrap {
+      flex-wrap: wrap
+    }
+
+    & > * {
+      flex-shrink: 0;
+      position: relative;
+    }
+  }
+
+  .el {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+
+    & > .fullWidth {
+      align-self: stretch;
+      width: unset;
+      max-width: 100%;
+    }
+
+    & > .fullHeight {
+      flex-grow: 1;
+      height: unset;
+      max-height: 100%;
+    }
+  }
+
+  .screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+  }
+
+  .grid {
+    display: grid;
+  }
+
+  // This is for old IE compatibility without grid support
+  .grid > div > div.el > * { max-width: 100%; }
+
+  .selectionHandle {
+    opacity: 0.2;
+    cursor: move;
+    &:hover {
+      opacity: 0.5;
+    }
+  }
+
+  input, textarea {
+    padding: 5px;
+    border-radius: 5px;
     border: 1px solid $color-dark;
-    outline: none;
+    &:focus {
+      box-shadow: 0 0 0 0.2rem transparentize($color-primary,0.7);
+      border: 1px solid $color-dark;
+      outline: none;
+    }
+  }
+
+  img.lazyload {
+    background: url('images/spinner.gif') no-repeat center;
+  }
+
+  .spinner {
+    background: url('images/spinner.gif') no-repeat center;
+    width: 16px;
+    height: 16px;
+  }
+
+  .spinner_40x60 {
+    background: url('images/spinner_40x60.gif') no-repeat center;
+    width: 40px;
+    height: 40px;
+  }
+
+  .iiif_logo {
+    background: url('images/logo-iiif-small.png') no-repeat center;
+    background-size: contain;
+    width: 34px;
+    height: 30px;
   }
 }

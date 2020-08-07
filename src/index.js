@@ -4,27 +4,17 @@ import 'lazysizes';
 
 window.OpenSeadragon = require('openseadragon');
 require('./index.html');
-require('./main.scss');
+require('./index_embed.html');
 
 window.lazySizesConfig = window.lazySizesConfig || {};
 window.lazySizesConfig.loadHidden = false;
 
-window.mountJalava = function(mountNode, config) {
-  var Main = require('./Main.elm');
+function setupListenersAndPorts(app, config) {
   var AnnotationOverlay = require('./AnnotationOverlay.elm');
 
-  var app = Main.Elm.Main.init({
-    node: mountNode,
-    flags: Object.assign({
-      rootUrl: "http://ryanfb.github.io/iiif-universe/iiif-universe.json",
-      uriMapper: {
-        inflaters: [],
-        deflaters: []
-      },
-      forceHttps : false
-    }, config || {})
-  });
   var overlayApp = null;
+
+  var osdPrefix = config.osdPrefix || 'osd/';
 
   app.ports.outPortOsdCmd.subscribe(function (data) {
     var viewerId = data["for"];
@@ -33,7 +23,7 @@ window.mountJalava = function(mountNode, config) {
     if (!viewer) {
       viewer = OpenSeadragon({
         id: viewerId,
-        prefixUrl: "osd/",
+        prefixUrl: osdPrefix,
         preserveOverlays: true
       })
 
@@ -138,14 +128,14 @@ window.mountJalava = function(mountNode, config) {
 
       if ((item != null && item.length > 0) || data["pos"] != null) {
         if (data["axis"] == "x") {
-          var xpos = (item == null ? data["pos"] : (item.offset().left + container.scrollLeft()));
+          var xpos = (item == null ? data["pos"] : (item.offset().left - container.offset().left + container.scrollLeft()));
           var scrollPos = xpos - container.width() / 2.0 + (item == null ? 0 : item.width()) / 2.0;
           if (data["alignment"] == "start") scrollPos = xpos;
           if (data["animate"]) container.animate({ scrollLeft: scrollPos });
           else container.scrollLeft(scrollPos)
         }
         else {
-          var ypos = (item == null ? data["pos"] : (item.offset().top + container.scrollTop()));
+          var ypos = (item == null ? data["pos"] : (item.offset().top - container.offset().top + container.scrollTop()));
           var scrollPos = ypos - container.height() / 2.0 + (item == null ? 0 : item.height()) / 2.0;
           if (data["alignment"] == "start") scrollPos = ypos;
           if (data["animate"]) container.animate({ scrollTop: scrollPos });
@@ -179,4 +169,38 @@ window.mountJalava = function(mountNode, config) {
       if (uri) app.ports.inPortLazyLoadPagedCollection.send(uri);
     }
   });
+}
+
+window.jalavaApp = function(config) {
+  var Main = require('./Main.elm');
+
+  var app = Main.Elm.Main.init({
+    flags: Object.assign({
+      rootUrl: "http://ryanfb.github.io/iiif-universe/iiif-universe.json",
+      uriMapper: {
+        inflaters: [],
+        deflaters: []
+      },
+      forceHttps : false
+    }, config || {})
+  });
+  setupListenersAndPorts(app, config);
 };
+
+window.jalavaEmbed = function(mountNode, config) {
+  var MainElement = require('./MainElement.elm');
+
+  var app = MainElement.Elm.MainElement.init({
+    node: mountNode,
+    flags: Object.assign({
+      rootUrl: "http://ryanfb.github.io/iiif-universe/iiif-universe.json",
+      uriMapper: {
+        inflaters: [],
+        deflaters: []
+      },
+      forceHttps : false
+    }, config || {})
+  });
+  setupListenersAndPorts(app, config);
+
+}
