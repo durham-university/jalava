@@ -1,4 +1,5 @@
 const CopyWebpackPlugin = require('copy-webpack-plugin')
+const MiniCssExtractPlugin = require('mini-css-extract-plugin')
 
 module.exports = {
   mode: 'development',
@@ -6,12 +7,8 @@ module.exports = {
   devtool: 'eval-source-map',
 
   entry: {
-    app: [
-      './src/index.js'
-    ],
-    uigallery: [
-      './src/uigallery.js'
-    ]
+    jalava: ['./src/index.js', './src/main.scss'],
+    uigallery: ['./src/uigallery.js', './src/main.scss']
   },
 
   output : {
@@ -24,7 +21,8 @@ module.exports = {
   },
 
   plugins : [
-    new CopyWebpackPlugin([{from: 'node_modules/openseadragon/build/openseadragon/images', to :'osd/'}])
+    new CopyWebpackPlugin([{from: 'node_modules/openseadragon/build/openseadragon/images', to :'osd/'}]),
+    new MiniCssExtractPlugin()
   ],
 
   module: {
@@ -32,7 +30,8 @@ module.exports = {
       {
         test: /\.scss$/,
         use: [
-          { loader: "style-loader" },
+          { loader: "file-loader", options : { name: '[name].css' } },
+          MiniCssExtractPlugin.loader,
           { loader: "css-loader", options: { sourceMap: true } },
           { loader: "sass-loader", options: { sourceMap: true } }
         ]
