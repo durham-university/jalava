@@ -158,6 +158,10 @@ function setupListenersAndPorts(app, config) {
     document.removeEventListener("copy", listener);   
   });
 
+  if( config.manifestLinkPort ) {
+    app.ports.outPortManifestLink.subscribe(config.manifestLinkPort);
+  }
+
   document.addEventListener('lazybeforeunveil', function (e) {
     var elem = $(e.target);
     if (elem.hasClass("manifest_lazyload")) {

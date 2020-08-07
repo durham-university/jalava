@@ -1,7 +1,8 @@
-module IiifUI.ManifestPanel exposing(..)
+port module IiifUI.ManifestPanel exposing(..)
 
 import Json.Decode as Decode
 import Json.Decode.Pipeline as DecodeP
+import Json.Encode as Encode
 import Dict
 import Regex
 
@@ -33,6 +34,8 @@ import Utils exposing(pluralise)
 import Iiif.Types exposing(..)
 import Iiif.Utils exposing(getManifest, willLoad, contentState)
 
+port outPortManifestLink : Encode.Value -> Cmd msg
+
 type alias Model =
   { manifest : Maybe Manifest
   , collapsible : Collapsible.Model
@@ -43,20 +46,25 @@ type Msg  = CollapsibleMsg Collapsible.Msg
           | CanvasClicked CanvasUri
           | TitleClicked
           | IiifNotification Iiif.Loading.Notification
+          | PortLinkClicked Decode.Value
 
 type OutMsg = ManifestSelected
             | CanvasSelected CanvasUri
 
-type alias ManifestLink = 
-  { url : String
-  , icon : Maybe String
-  , label : Maybe String
-  }
+type ManifestLink = UrlLink { url : String
+                            , icon : Maybe String
+                            , label : Maybe String
+                            }
+                  | PortLink { param : Decode.Value
+                              , icon : Maybe String
+                              , label : Maybe String
+                              }
 
 type alias ManifestLinker = Manifest -> Maybe ManifestLink
 
 type ManifestLinkMethod = ReplaceContentState String
                         | ReplaceManifestUri String
+                        | PortManifestUri Decode.Value
                         | NoLink
 
 component : U.Component Model Msg OutMsg
@@ -84,15 +92,20 @@ makeManifestLinker maybeLabel maybeIcon maybeMatchManifest manifestLinkMethod =
           case contentState m Nothing Nothing Nothing of
             Nothing -> Nothing
             Just contentState_ -> 
-              Just  { url = String.replace "__contentstate__" contentState_ replaceContentState
-                    , label = maybeLabel
-                    , icon = maybeIcon
-                    }
+              Just <| UrlLink { url = String.replace "__contentstate__" contentState_ replaceContentState
+                              , label = maybeLabel
+                              , icon = maybeIcon
+                              }
         ReplaceManifestUri replaceManifestUri ->
-          Just  { url = String.replace "__manifesturi__" m.id replaceManifestUri
-                , label = maybeLabel
-                , icon = maybeIcon
-                }
+          Just <| UrlLink { url = String.replace "__manifesturi__" m.id replaceManifestUri
+                          , label = maybeLabel
+                          , icon = maybeIcon
+                          }
+        PortManifestUri param ->
+          Just <| PortLink { param = Encode.object [("uri", Encode.string m.id), ("param", param)]
+                            , label = maybeLabel
+                            , icon = maybeIcon
+                            }
     
     matcher : ManifestLinker -> ManifestLinker
     matcher linker m = 
@@ -116,6 +129,7 @@ manifestLinkerDecoder =
   |> DecodeP.custom (Decode.oneOf
       [ Decode.succeed ReplaceContentState |> DecodeP.required "replaceContentState" Decode.string
       , Decode.succeed ReplaceManifestUri |> DecodeP.required "replaceManifestUri" Decode.string
+      , Decode.succeed PortManifestUri |> DecodeP.required "portManifestUri" Decode.value
       , Decode.succeed NoLink
       ])
 
@@ -149,6 +163,7 @@ update msg model =
     TitleClicked -> (model, Cmd.none, [ManifestSelected])
     IiifNotification notification -> 
       checkManifestLoaded notification model
+    PortLinkClicked param -> (model, outPortManifestLink param, [])
 
 checkManifestLoaded : Iiif.Loading.Notification -> Model -> (Model, Cmd Msg, List OutMsg)
 checkManifestLoaded notification model =
@@ -240,14 +255,16 @@ canvasLine model =
 manifestLinkView : ManifestLink -> Html Msg
 manifestLinkView link =
   let 
-    content =
-      case (link.icon, link.label) of
-        (Just icon, Just label) -> img [Attributes.height 18, Attributes.width 21, Attributes.src icon, Attributes.alt label] []
-        (Just icon, Nothing) -> img [Attributes.height 18, Attributes.width 21, Attributes.src icon] []
+    content data =
+      case (data.icon, data.label) of
+        (Just icon, Just label) -> img [Attributes.height 18, Attributes.src icon, Attributes.alt label] []
+        (Just icon, Nothing) -> img [Attributes.height 18, Attributes.src icon] []
         (Nothing, Just label) -> text label
         (Nothing, Nothing) -> text "Link"
   in
-  a [Attributes.href link.url, Attributes.target "_blank"] [content]
+  case link of
+    UrlLink data -> a [Attributes.href data.url, Attributes.target "_blank"] [Button.link |> Button.attributes [Attributes.style "padding" "0"] |> Button.content (content data) |> Button.button]
+    PortLink data -> Button.link |> Button.attributes [Attributes.style "padding" "0"] |> Button.content (content data) |> Button.onPress (PortLinkClicked data.param) |> Button.button
 
 footer : Model -> Html Msg
 footer model =

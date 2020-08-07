@@ -38,8 +38,17 @@
             icon: 'mirador-logo.png',
             matchManifest: "^(.*)$",
             replaceContentState: "https://iiif.durham.ac.uk/index.html?iiif-content=__contentstate__"
+          },
+          {
+            label: 'Port test',
+            icon: 'mirador-logo.png',
+            matchManifest: "^(.*)$",
+            portManifestUri: 'test'
           }
-        ]*/
+        ],
+        manifestLinkPort: function(data) {
+          alert(data.uri + " " + data.param);
+        }*/
       }
     );
   </script>
