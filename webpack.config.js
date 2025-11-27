@@ -6,6 +6,8 @@ module.exports = {
 
   devtool: 'eval-source-map',
 
+  watch: true,
+
   entry: {
     jalava: ['./src/index.js', './src/main.scss'],
     uigallery: ['./src/uigallery.js', './src/main.scss']
