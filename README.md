@@ -5,7 +5,7 @@ Jalava
 
 IIIF is a standardised way of describing image repositories and a way to access the images in them. Jalava provides a simple directory tree based discovery interface for IIIF compliant repositories.
 
-The default starting point for browsing is provided by [IIIF-Universe](https://github.com/ryanfb/iiif-universe) which collects IIIF repositories from various institutitons around the world. This way Jalava gives you easy access to a huge number of items from many different digital libraries.
+The default starting point for browsing is provided by [IIIF-Universe](https://github.com/ryanfb/iiif-universe) which collects IIIF repositories from various institutions around the world. This way Jalava gives you easy access to a huge number of items from many different digital libraries.
 
 At the time of writing this, a few of the endpoints in IIIF-Universe don't appear to work. Some others may use features (such as paging) that Jalava does not yet support. If you get error messages or apparently empty repositories, just try another one.
 
